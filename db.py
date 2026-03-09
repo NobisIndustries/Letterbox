@@ -37,7 +37,7 @@ def get_session() -> Session:
 def init_db():
     """Run Alembic migrations to bring the database up to date."""
     alembic_cfg = Config(str(Path(__file__).parent / "alembic.ini"))
-    alembic_cfg.set_main_option("script_location", str(Path(__file__).parent / "alembic"))
+    alembic_cfg.set_main_option("script_location", str(Path(__file__).parent / "alembic_migrations"))
     command.upgrade(alembic_cfg, "head")
 
 
