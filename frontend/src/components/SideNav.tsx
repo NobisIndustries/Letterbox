@@ -36,7 +36,7 @@ export function SideNav({ collapsed, onToggle }: SideNavProps) {
       <div className={`flex items-center border-b h-14 shrink-0 ${collapsed ? "justify-center" : "px-4 gap-2"}`}>
         {!collapsed && (
           <span className="text-sm font-semibold text-primary tracking-wide flex-1 truncate">
-            Letter Scanner
+            Letterbox
           </span>
         )}
         <button

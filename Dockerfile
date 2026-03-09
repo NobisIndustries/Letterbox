@@ -7,12 +7,12 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Python runtime
-FROM python:3.12-slim
+FROM python:3.13-slim
 WORKDIR /app
 
-# Install system dependencies for OpenCV
+# Install system dependencies for OpenCV + wget for model downloads
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 libglib2.0-0 \
+    libgl1 libglib2.0-0 wget \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -26,9 +26,10 @@ COPY alembic.ini .
 # Copy built frontend
 COPY --from=frontend-build /app/frontend/dist frontend/dist
 
-# Data and models are mounted as volumes
-VOLUME ["/app/data", "/app/models"]
+# Entrypoint downloads models on first run if not already mounted
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+ENTRYPOINT ["/entrypoint.sh"]
