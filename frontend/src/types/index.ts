@@ -5,6 +5,9 @@ export interface Task {
   deadline: string | null;
   is_done: boolean;
   created_at: string;
+  letter_title: string | null;
+  letter_sender: string | null;
+  letter_receiver: string | null;
 }
 
 export interface Letter {

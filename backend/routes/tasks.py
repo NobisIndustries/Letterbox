@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from backend.dependencies import get_db
 from backend.models import Task
@@ -14,14 +15,22 @@ async def list_tasks(
     filter: str = Query("all", pattern="^(pending|done|all)$"),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Task)
+    stmt = select(Task).options(selectinload(Task.letter))
     if filter == "pending":
         stmt = stmt.where(Task.is_done == False)  # noqa: E712
     elif filter == "done":
         stmt = stmt.where(Task.is_done == True)  # noqa: E712
     stmt = stmt.order_by(Task.deadline.asc().nullslast())
     result = await db.execute(stmt)
-    return [TaskOut.model_validate(t) for t in result.scalars().all()]
+    tasks = result.scalars().all()
+    out = []
+    for t in tasks:
+        d = TaskOut.model_validate(t)
+        d.letter_title = t.letter.title if t.letter else None
+        d.letter_sender = t.letter.sender if t.letter else None
+        d.letter_receiver = t.letter.receiver if t.letter else None
+        out.append(d)
+    return out
 
 
 @router.patch("/{task_id}", response_model=TaskOut)

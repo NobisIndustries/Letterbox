@@ -1,35 +1,64 @@
-import { Link } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
 import type { LetterListItem } from "@/types";
 
-export function LetterCard({ letter }: { letter: LetterListItem }) {
+interface LetterCardProps {
+  letter: LetterListItem;
+  selected?: boolean;
+  onSelect?: (id: number) => void;
+}
+
+export function LetterCard({ letter, selected, onSelect }: LetterCardProps) {
+  const navigate = useNavigate();
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (onSelect) {
+      e.preventDefault();
+      onSelect(letter.id);
+    } else {
+      navigate(`/letters/${letter.id}`);
+    }
+  };
+
   return (
-    <Link to={`/letters/${letter.id}`}>
-      <Card className="hover:bg-muted/50 transition-colors">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium leading-tight">
-            {letter.title || "Untitled"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1 text-xs text-muted-foreground">
-          {letter.sender && <p>From: {letter.sender}</p>}
-          {letter.receiver && <p>To: {letter.receiver}</p>}
-          {letter.creation_date && <p>Date: {letter.creation_date}</p>}
-          {letter.tags && (
-            <div className="flex flex-wrap gap-1 pt-1">
-              {letter.tags.split(", ").map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-[10px]">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-          {letter.summary && (
-            <p className="line-clamp-2 pt-1">{letter.summary}</p>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
+    <div
+      onClick={handleClick}
+      className={`cursor-pointer rounded-xl px-4 py-3 transition-colors ${
+        selected
+          ? "bg-accent/60"
+          : "bg-card hover:bg-muted/60 shadow-sm"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium leading-tight truncate">
+            {letter.sender || <span className="text-muted-foreground italic">Unknown sender</span>}
+          </p>
+          <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
+            → {letter.receiver || "Unknown recipient"}
+          </p>
+        </div>
+        {letter.creation_date && (
+          <span className="text-xs text-muted-foreground shrink-0">{letter.creation_date}</span>
+        )}
+      </div>
+      {letter.title && (
+        <p className="text-xs text-muted-foreground truncate mt-1 italic">{letter.title}</p>
+      )}
+      {letter.summary && (
+        <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5">{letter.summary}</p>
+      )}
+      {letter.tags && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {letter.tags.split(", ").map((tag) => (
+            <span
+              key={tag}
+              className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

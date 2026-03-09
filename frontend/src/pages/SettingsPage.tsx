@@ -74,7 +74,7 @@ function SettingList({ settingKey, label }: { settingKey: string; label: string 
 
 export function SettingsPage() {
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-3 p-4 max-w-lg mx-auto">
       <h1 className="text-lg font-semibold">Settings</h1>
       <SettingList settingKey="recipients" label="Recipients" />
       <SettingList settingKey="tags" label="Tags" />

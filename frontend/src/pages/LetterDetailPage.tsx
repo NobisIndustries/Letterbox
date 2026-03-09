@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,7 +64,7 @@ export function LetterDetailPage() {
   };
 
   return (
-    <div className="flex flex-col gap-3 p-4 pb-20">
+    <div className="flex flex-col gap-4 p-4 pb-20 max-w-2xl mx-auto">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           ← Back
@@ -95,35 +93,23 @@ export function LetterDetailPage() {
         <form onSubmit={handleSave} className="flex flex-col gap-3">
           <div>
             <Label htmlFor="title">Title</Label>
-            <Input name="title" id="title" defaultValue={letter.title ?? ""} />
+            <Input name="title" id="title" defaultValue={letter.title ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
           </div>
           <div>
             <Label htmlFor="sender">Sender</Label>
-            <Input
-              name="sender"
-              id="sender"
-              defaultValue={letter.sender ?? ""}
-            />
+            <Input name="sender" id="sender" defaultValue={letter.sender ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
           </div>
           <div>
             <Label htmlFor="receiver">Receiver</Label>
-            <Input
-              name="receiver"
-              id="receiver"
-              defaultValue={letter.receiver ?? ""}
-            />
+            <Input name="receiver" id="receiver" defaultValue={letter.receiver ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
           </div>
           <div>
             <Label htmlFor="keywords">Keywords</Label>
-            <Input
-              name="keywords"
-              id="keywords"
-              defaultValue={letter.keywords ?? ""}
-            />
+            <Input name="keywords" id="keywords" defaultValue={letter.keywords ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
           </div>
           <div>
             <Label htmlFor="tags">Tags</Label>
-            <Input name="tags" id="tags" defaultValue={letter.tags ?? ""} />
+            <Input name="tags" id="tags" defaultValue={letter.tags ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
           </div>
           <Button type="submit" disabled={editMutation.isPending}>
             Save
@@ -131,94 +117,93 @@ export function LetterDetailPage() {
         </form>
       ) : (
         <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>{letter.title || "Untitled"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {letter.sender && (
-                <p>
-                  <span className="text-muted-foreground">From:</span>{" "}
-                  {letter.sender}
-                </p>
-              )}
-              {letter.receiver && (
-                <p>
-                  <span className="text-muted-foreground">To:</span>{" "}
-                  {letter.receiver}
-                </p>
-              )}
-              {letter.creation_date && (
-                <p>
-                  <span className="text-muted-foreground">Date:</span>{" "}
-                  {letter.creation_date}
-                </p>
-              )}
-              {letter.keywords && (
-                <p>
-                  <span className="text-muted-foreground">Keywords:</span>{" "}
-                  {letter.keywords}
-                </p>
-              )}
-              {letter.tags && (
-                <div className="flex flex-wrap gap-1">
-                  {letter.tags.split(", ").map((tag) => (
-                    <Badge key={tag} variant="secondary">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              {letter.summary && (
-                <div>
-                  <p className="text-muted-foreground mb-1">Summary</p>
-                  <p>{letter.summary}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <h1 className="text-xl font-semibold">{letter.title || "Untitled"}</h1>
+
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            {letter.sender && (
+              <>
+                <span className="text-muted-foreground">From</span>
+                <span>{letter.sender}</span>
+              </>
+            )}
+            {letter.receiver && (
+              <>
+                <span className="text-muted-foreground">To</span>
+                <span>{letter.receiver}</span>
+              </>
+            )}
+            {letter.creation_date && (
+              <>
+                <span className="text-muted-foreground">Date</span>
+                <span>{letter.creation_date}</span>
+              </>
+            )}
+            {letter.keywords && (
+              <>
+                <span className="text-muted-foreground">Keywords</span>
+                <span>{letter.keywords}</span>
+              </>
+            )}
+          </div>
+
+          {letter.tags && (
+            <div className="flex flex-wrap gap-1.5">
+              {letter.tags.split(", ").map((tag) => (
+                <span
+                  key={tag}
+                  className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {letter.summary && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Summary</p>
+              <div className="rounded-lg bg-muted/60 p-3 text-sm">
+                {letter.summary}
+              </div>
+            </div>
+          )}
 
           {letter.pdf_path && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">PDF</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <a
-                  href={`/api/letters/${letter.id}/pdf`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Button variant="outline" size="sm" className="w-full">
-                    View / Download PDF
-                  </Button>
-                </a>
-              </CardContent>
-            </Card>
+            <a
+              href={`/api/letters/${letter.id}/pdf`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button variant="outline" size="sm" className="w-full">
+                View / Download PDF
+              </Button>
+            </a>
           )}
 
           {letter.tasks.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Tasks</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Tasks</p>
+              <div className="flex flex-col gap-2">
                 {letter.tasks.map((task) => (
                   <label
                     key={task.id}
-                    className="flex items-start gap-2 text-sm"
+                    className="flex items-start gap-3 text-sm cursor-pointer"
                   >
-                    <input
-                      type="checkbox"
-                      checked={task.is_done}
-                      onChange={() =>
+                    <span
+                      onClick={() =>
                         toggleTask.mutate({
                           taskId: task.id,
                           isDone: !task.is_done,
                         })
                       }
-                      className="mt-0.5"
-                    />
+                      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] transition-colors ${
+                        task.is_done
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "border-muted-foreground text-transparent"
+                      }`}
+                    >
+                      ✓
+                    </span>
                     <span
                       className={task.is_done ? "line-through opacity-50" : ""}
                     >
@@ -231,23 +216,19 @@ export function LetterDetailPage() {
                     </span>
                   </label>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {letter.full_text && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Full Text</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  readOnly
-                  value={letter.full_text}
-                  className="min-h-[200px] text-xs"
-                />
-              </CardContent>
-            </Card>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Transcript</p>
+              <Textarea
+                readOnly
+                value={letter.full_text}
+                className="min-h-[200px] text-xs bg-muted/40 border-0 focus-visible:ring-1"
+              />
+            </div>
           )}
         </>
       )}

@@ -43,7 +43,7 @@ export function IngestPage() {
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 p-4">
+    <div className="flex flex-col items-center gap-4 p-4 max-w-lg mx-auto">
       <h1 className="text-lg font-semibold">Scan Letter</h1>
 
       {jobIds.length > 0 && (
@@ -58,7 +58,6 @@ export function IngestPage() {
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         multiple
         className="hidden"
         onChange={(e) => addFiles(e.target.files)}

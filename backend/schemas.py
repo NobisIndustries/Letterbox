@@ -10,6 +10,9 @@ class TaskOut(BaseModel):
     deadline: date | None
     is_done: bool
     created_at: datetime
+    letter_title: str | None = None
+    letter_sender: str | None = None
+    letter_receiver: str | None = None
 
     model_config = {"from_attributes": True}
 
