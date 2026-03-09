@@ -26,8 +26,8 @@ Built for personal use on a home network. Not production software.
 ## Requirements
 
 - Docker + Docker Compose
-- An [OpenRouter](https://openrouter.ai) API key (Gemini Flash is cheap — a few cents per letter)
-- ~500 MB disk for the ML models (downloaded automatically on first run)
+- An [OpenRouter](https://openrouter.ai) API key (Gemini Flash is cheap — a few fractions of a cent per letter)
+- ~Gb MB disk for the ML models (downloaded automatically on first run)
 
 ## Setup
 
