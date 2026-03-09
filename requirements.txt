@@ -1,0 +1,10 @@
+streamlit
+python-dotenv
+requests
+img2pdf
+torch
+opencv-python-headless
+einops
+numpy
+sqlalchemy
+alembic
