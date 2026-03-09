@@ -1,0 +1,57 @@
+export interface Task {
+  id: number;
+  letter_id: number;
+  description: string;
+  deadline: string | null;
+  is_done: boolean;
+  created_at: string;
+}
+
+export interface Letter {
+  id: number;
+  title: string | null;
+  summary: string | null;
+  sender: string | null;
+  receiver: string | null;
+  creation_date: string | null;
+  ingested_at: string;
+  keywords: string | null;
+  tags: string | null;
+  full_text: string | null;
+  pdf_path: string | null;
+  page_count: number | null;
+  tasks: Task[];
+}
+
+export interface LetterListItem {
+  id: number;
+  title: string | null;
+  summary: string | null;
+  sender: string | null;
+  receiver: string | null;
+  creation_date: string | null;
+  ingested_at: string;
+  keywords: string | null;
+  tags: string | null;
+  page_count: number | null;
+}
+
+export interface LetterListResponse {
+  items: LetterListItem[];
+  total: number;
+}
+
+export interface IngestResponse {
+  job_id: string;
+}
+
+export interface IngestStatus {
+  status: string;
+  letter_id: number | null;
+  error: string | null;
+}
+
+export interface Setting {
+  key: string;
+  value: string[];
+}

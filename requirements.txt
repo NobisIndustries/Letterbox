@@ -1,7 +1,11 @@
-streamlit
+fastapi
+uvicorn[standard]
+pydantic-settings
+httpx
+aiosqlite
 python-dotenv
-requests
 img2pdf
+Pillow
 torch
 opencv-python-headless
 einops

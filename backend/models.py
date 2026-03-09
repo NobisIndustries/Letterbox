@@ -21,6 +21,7 @@ class Letter(Base):
         DateTime, server_default=func.now()
     )
     keywords: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[str | None] = mapped_column(Text)
     full_text: Mapped[str | None] = mapped_column(Text)
     pdf_path: Mapped[str | None] = mapped_column(Text)
     page_count: Mapped[int | None] = mapped_column(Integer)
@@ -46,3 +47,11 @@ class Task(Base):
     )
 
     letter: Mapped["Letter"] = relationship(back_populates="tasks")
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False, server_default="[]")
