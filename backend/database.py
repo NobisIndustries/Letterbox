@@ -7,16 +7,21 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from backend.config import settings
 
-engine = create_async_engine(settings.db_url, echo=False)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+engine = None
+async_session = None
 
 
-@event.listens_for(engine.sync_engine, "connect")
-def _set_sqlite_pragma(dbapi_conn, _connection_record):
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+def _init_engine():
+    global engine, async_session
+    engine = create_async_engine(settings.db_url, echo=False)
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, _connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 def run_migrations():
@@ -30,3 +35,5 @@ def run_migrations():
         "sqlalchemy.url", f"sqlite:///{settings.db_path}"
     )
     command.upgrade(alembic_cfg, "head")
+    # Initialize async engine after migrations complete
+    _init_engine()

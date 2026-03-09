@@ -12,3 +12,4 @@ einops
 numpy
 sqlalchemy
 alembic
+python-multipart

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import uuid
 
-from backend.database import async_session
+from backend import database
 from backend.services.ingest import run_ingest
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def worker():
             async def on_progress(step: str):
                 _jobs[job_id]["status"] = step
 
-            async with async_session() as session:
+            async with database.async_session() as session:
                 async with session.begin():
                     letter = await run_ingest(session, images, on_progress=on_progress)
                     _jobs[job_id]["letter_id"] = letter.id

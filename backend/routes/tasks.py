@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 @router.get("", response_model=list[TaskOut])
 async def list_tasks(
-    filter: str = Query("all", regex="^(pending|done|all)$"),
+    filter: str = Query("all", pattern="^(pending|done|all)$"),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Task)
