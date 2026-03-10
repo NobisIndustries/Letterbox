@@ -14,4 +14,3 @@ numpy
 sqlalchemy
 alembic
 python-multipart
-psutil
