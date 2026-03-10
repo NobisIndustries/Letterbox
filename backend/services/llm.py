@@ -25,7 +25,7 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
 
 Rules:
 - Transcribe the full text faithfully, preserving the original language
-- Extract ALL action items/deadlines as tasks
+- Extract main action items/deadlines as tasks - only do important ones, limit to max 2.
 - If a field cannot be determined, use null (or empty list for keywords/tasks/tags)
 - For creation_date, look for dates printed on the letter
 - Keywords should capture the main topics (3-8 keywords)
