@@ -30,6 +30,8 @@ COPY --from=frontend-build /app/frontend/dist frontend/dist
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+ENV PYTHONUNBUFFERED=1
+
 EXPOSE 8000
 
 ENTRYPOINT ["/entrypoint.sh"]

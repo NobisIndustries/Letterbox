@@ -25,8 +25,11 @@ def _load_seg_model(model_path, device):
     seg_model.to(device)
     seg_model.eval()
     if device.type == "cpu":
+        # Only quantize Linear layers. Conv2d dynamic quantization is not
+        # well-supported in PyTorch and causes catastrophic slowdowns
+        # (100x+) on CPUs without AVX-512, like Intel N100.
         seg_model = torch.quantization.quantize_dynamic(
-            seg_model, {torch.nn.Linear, torch.nn.Conv2d}, dtype=torch.qint8
+            seg_model, {torch.nn.Linear}, dtype=torch.qint8
         )
     return seg_model
 

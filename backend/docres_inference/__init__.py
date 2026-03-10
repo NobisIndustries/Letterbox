@@ -78,8 +78,11 @@ class DocResProcessor:
         if self._device.type == "cuda":
             self._model.half()
         else:
+            # Only quantize Linear layers. Conv2d dynamic quantization is not
+            # well-supported in PyTorch and causes catastrophic slowdowns
+            # on CPUs without AVX-512 (e.g. Intel N100).
             self._model = torch.quantization.quantize_dynamic(
-                self._model, {torch.nn.Linear, torch.nn.Conv2d}, dtype=torch.qint8
+                self._model, {torch.nn.Linear}, dtype=torch.qint8
             )
 
         print(f"[DocRes] Restormer loaded{' + quantized (int8)' if self._device.type != 'cuda' else ''} in {time.time() - t0:.1f}s")
