@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchSetting, updateSetting } from "@/api/client";
 
-function SettingList({ settingKey, label }: { settingKey: string; label: string }) {
+function SettingList({ settingKey, label, description }: { settingKey: string; label: string; description?: string }) {
   const queryClient = useQueryClient();
   const [newItem, setNewItem] = useState("");
 
@@ -38,6 +38,9 @@ function SettingList({ settingKey, label }: { settingKey: string; label: string 
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">{label}</CardTitle>
+        {description && (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex flex-wrap gap-1">
@@ -76,8 +79,16 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col gap-3 p-4 max-w-lg mx-auto">
       <h1 className="text-lg font-semibold">Settings</h1>
-      <SettingList settingKey="recipients" label="Recipients" />
-      <SettingList settingKey="tags" label="Tags" />
+      <SettingList
+        settingKey="recipients"
+        label="Recipients"
+        description="People or entities who receive letters at this address. The LLM uses this list to assign each letter to the right recipient."
+      />
+      <SettingList
+        settingKey="tags"
+        label="Tags"
+        description="A vocabulary of labels the LLM can assign to letters (e.g. 'invoice', 'tax', 'insurance'). Add tags here to help the LLM categorise your mail."
+      />
     </div>
   );
 }

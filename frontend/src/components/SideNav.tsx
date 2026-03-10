@@ -1,12 +1,13 @@
 import { NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTasks } from "@/api/client";
+import { Mail, Archive, CheckSquare, Settings } from "lucide-react";
 
 const navItems = [
-  { to: "/", label: "Ingest", icon: "+" },
-  { to: "/archive", label: "Archive", icon: "📋" },
-  { to: "/tasks", label: "Tasks", icon: "✓" },
-  { to: "/settings", label: "Settings", icon: "⚙" },
+  { to: "/", label: "Ingest", Icon: Mail },
+  { to: "/archive", label: "Archive", Icon: Archive },
+  { to: "/tasks", label: "Tasks", Icon: CheckSquare },
+  { to: "/settings", label: "Settings", Icon: Settings },
 ];
 
 interface SideNavProps {
@@ -50,12 +51,12 @@ export function SideNav({ collapsed, onToggle }: SideNavProps) {
 
       {/* Nav items */}
       <nav className="flex flex-col gap-1 p-2 flex-1">
-        {navItems.map((item) => (
+        {navItems.map(({ to, label, Icon }) => (
           <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/"}
-            title={collapsed ? item.label : undefined}
+            key={to}
+            to={to}
+            end={to === "/"}
+            title={collapsed ? label : undefined}
             className={({ isActive }) =>
               `flex items-center rounded-lg text-sm transition-colors ${
                 collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2"
@@ -66,15 +67,15 @@ export function SideNav({ collapsed, onToggle }: SideNavProps) {
               }`
             }
           >
-            <span className="relative text-base leading-none shrink-0">
-              {item.icon}
-              {item.label === "Tasks" && overdueCount > 0 && (
+            <span className="relative flex items-center justify-center w-5 h-5 shrink-0">
+              <Icon size={16} />
+              {label === "Tasks" && overdueCount > 0 && (
                 <span className="absolute -right-2 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white">
                   {overdueCount}
                 </span>
               )}
             </span>
-            {!collapsed && <span>{item.label}</span>}
+            {!collapsed && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>

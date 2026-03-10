@@ -85,17 +85,15 @@ export function TasksPage() {
               className="flex-1 min-w-0 text-left px-3 py-3 hover:bg-muted/40 transition-colors"
               onClick={() => navigate(`/letters/${task.letter_id}`)}
             >
-              <div className="flex items-start justify-between gap-2">
-                <p className={`text-sm leading-snug ${task.is_done ? "line-through opacity-50" : ""}`}>
-                  {task.description}
-                </p>
+              <p className={`text-sm leading-snug ${task.is_done ? "line-through opacity-50" : ""}`}>
+                {task.description}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                 {task.letter_receiver && (
-                  <span className="text-xs font-medium text-primary shrink-0">
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary font-medium">
                     {task.letter_receiver}
                   </span>
                 )}
-              </div>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                 {task.letter_sender && <span>{task.letter_sender}</span>}
                 {task.deadline && (
                   <span className={isOverdue(task.deadline) && !task.is_done ? "text-destructive font-medium" : ""}>

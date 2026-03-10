@@ -32,7 +32,7 @@ def upgrade() -> None:
 
     # Seed default settings
     op.execute("INSERT INTO settings (key, value) VALUES ('recipients', '[]')")
-    op.execute("INSERT INTO settings (key, value) VALUES ('tags', '[]')")
+    op.execute("""INSERT INTO settings (key, value) VALUES ('tags', '["invoice","bill","banking","insurance","tax","refund","order","shipping","coupon","marketing","government","legal","contract","health","subscription"]')""")
 
     # Drop old FTS triggers and table, rebuild with tags column
     op.execute("DROP TRIGGER IF EXISTS letters_au")
