@@ -2,16 +2,23 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { deleteTask, fetchTasks, updateTask } from "@/api/client";
+import { deleteTask, fetchSetting, fetchTasks, updateTask } from "@/api/client";
 
 export function TasksPage() {
   const [filter, setFilter] = useState<"pending" | "done" | "all">("pending");
+  const [recipient, setRecipient] = useState<string>("");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  const { data: recipientsSetting } = useQuery({
+    queryKey: ["settings", "recipients"],
+    queryFn: () => fetchSetting("recipients"),
+  });
+  const recipients: string[] = recipientsSetting?.value ?? [];
+
   const { data: tasks, isLoading } = useQuery({
-    queryKey: ["tasks", filter],
-    queryFn: () => fetchTasks(filter),
+    queryKey: ["tasks", filter, recipient],
+    queryFn: () => fetchTasks(filter, recipient || undefined),
   });
 
   const toggle = useMutation({
@@ -32,17 +39,31 @@ export function TasksPage() {
     <div className="flex flex-col gap-3 p-4 max-w-2xl mx-auto">
       <h1 className="text-lg font-semibold">Tasks</h1>
 
-      <div className="flex gap-1">
-        {(["pending", "done", "all"] as const).map((f) => (
-          <Button
-            key={f}
-            variant={filter === f ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter(f)}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex gap-1">
+          {(["pending", "done", "all"] as const).map((f) => (
+            <Button
+              key={f}
+              variant={filter === f ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilter(f)}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </Button>
+          ))}
+        </div>
+        {recipients.length > 0 && (
+          <select
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
           >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-          </Button>
-        ))}
+            <option value="">All recipients</option>
+            {recipients.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {isLoading && (

@@ -84,9 +84,12 @@ export async function uploadImages(files: File[]): Promise<IngestResponse> {
 
 // Tasks
 export async function fetchTasks(
-  filter: "all" | "pending" | "done" = "all"
+  filter: "all" | "pending" | "done" = "all",
+  recipient?: string
 ): Promise<Task[]> {
-  return request<Task[]>(`/tasks?filter=${filter}`);
+  const params = new URLSearchParams({ filter });
+  if (recipient) params.set("recipient", recipient);
+  return request<Task[]>(`/tasks?${params}`);
 }
 
 export async function updateTask(

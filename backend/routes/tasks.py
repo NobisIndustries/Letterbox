@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.dependencies import get_db
-from backend.models import Task
+from backend.models import Letter, Task
 from backend.schemas import TaskOut, TaskUpdate
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 @router.get("", response_model=list[TaskOut])
 async def list_tasks(
     filter: str = Query("all", pattern="^(pending|done|all)$"),
+    recipient: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(Task).options(selectinload(Task.letter))
@@ -20,6 +21,8 @@ async def list_tasks(
         stmt = stmt.where(Task.is_done == False)  # noqa: E712
     elif filter == "done":
         stmt = stmt.where(Task.is_done == True)  # noqa: E712
+    if recipient:
+        stmt = stmt.join(Task.letter).where(Letter.receiver == recipient)
     stmt = stmt.order_by(Task.deadline.asc().nullslast())
     result = await db.execute(stmt)
     tasks = result.scalars().all()
