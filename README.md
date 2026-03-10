@@ -31,12 +31,29 @@ Built for personal use on a home network. Not production software.
 
 ## Setup
 
+### Option A: Prebuilt image (recommended)
+
+```bash
+# Create a directory for your data
+mkdir letterbox && cd letterbox
+
+# Create .env with your API key
+echo "OPENROUTER_API_KEY=your-key-here" > .env
+
+# Download the compose file
+curl -O https://raw.githubusercontent.com/nobisindustries/letterbox/main/docker-compose.yml
+
+docker compose up
+```
+
+### Option B: Build from source
+
 ```bash
 git clone https://github.com/nobisindustries/letterbox
 cd letterbox
 cp .env.example .env
 # Add your OPENROUTER_API_KEY to .env
-docker compose up
+docker compose up --build
 ```
 
 Open `http://localhost:8000` in your browser.

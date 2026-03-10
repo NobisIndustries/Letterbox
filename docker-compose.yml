@@ -1,6 +1,6 @@
 services:
   letterbox:
-    build: .
+    image: ghcr.io/nobisindustries/letterbox:latest
     ports:
       - "8000:8000"
     volumes:
