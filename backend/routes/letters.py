@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
@@ -56,21 +57,37 @@ async def ingest_status(job_id: str):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+def _fts_query(q: str) -> str:
+    """Convert a plain search string to an FTS5 prefix query."""
+    # Tokenize on whitespace, strip FTS5 special chars, add prefix wildcard
+    tokens = q.split()
+    safe_tokens = [re.sub(r'[^a-zA-Z0-9äöüÄÖÜß]', '', t) for t in tokens]
+    safe_tokens = [t for t in safe_tokens if t]
+    if not safe_tokens:
+        return ""
+    return " ".join(f'"{t}"*' for t in safe_tokens)
+
+
 @router.get("", response_model=LetterListResponse)
 async def list_letters(
     q: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    tag: str | None = None,
+    receiver: str | None = None,
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     order: str = "creation_date",
     db: AsyncSession = Depends(get_db),
 ):
     if q:
-        # FTS5 search
+        fts_q = _fts_query(q)
+        if not fts_q:
+            return LetterListResponse(items=[], total=0)
+        # FTS5 prefix search
         fts_result = await db.execute(
             text("SELECT rowid FROM letters_fts WHERE letters_fts MATCH :query ORDER BY rank"),
-            {"query": q},
+            {"query": fts_q},
         )
         ids = [row[0] for row in fts_result]
         if not ids:
@@ -83,6 +100,11 @@ async def list_letters(
         stmt = stmt.where(Letter.creation_date >= date_from)
     if date_to:
         stmt = stmt.where(Letter.creation_date <= date_to)
+    if tag:
+        # tags stored as comma-separated string like "tag1, tag2"
+        stmt = stmt.where(Letter.tags.contains(tag))
+    if receiver:
+        stmt = stmt.where(Letter.receiver == receiver)
 
     # Count total
     count_result = await db.execute(

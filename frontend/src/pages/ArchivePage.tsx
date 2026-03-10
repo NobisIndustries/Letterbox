@@ -1,18 +1,165 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LetterCard } from "@/components/LetterCard";
-import { fetchLetters, fetchLetter } from "@/api/client";
+import { fetchLetters, fetchLetter, fetchSetting, fetchReceivers, updateTask } from "@/api/client";
 
 const PAGE_SIZE = 20;
 
+function FilterPanel({
+  search, setSearch,
+  dateFrom, setDateFrom,
+  dateTo, setDateTo,
+  tag, setTag,
+  receiver, setReceiver,
+  resetPage,
+  compact,
+}: {
+  search: string; setSearch: (v: string) => void;
+  dateFrom: string; setDateFrom: (v: string) => void;
+  dateTo: string; setDateTo: (v: string) => void;
+  tag: string; setTag: (v: string) => void;
+  receiver: string; setReceiver: (v: string) => void;
+  resetPage: () => void;
+  compact: boolean;
+}) {
+  const [showExtra, setShowExtra] = useState(false);
+
+  const { data: tagsSetting } = useQuery({
+    queryKey: ["settings", "tags"],
+    queryFn: () => fetchSetting("tags"),
+  });
+  const { data: receivers } = useQuery({
+    queryKey: ["receivers"],
+    queryFn: fetchReceivers,
+  });
+
+  const tags = tagsSetting?.value ?? [];
+  const inputClass = compact
+    ? "bg-muted border-0 focus-visible:ring-1 h-8 text-sm"
+    : "bg-muted border-0 focus-visible:ring-1";
+  const selectClass = compact
+    ? "bg-muted border-0 rounded-md px-2 h-8 text-sm w-full focus:outline-none focus:ring-1 focus:ring-ring"
+    : "bg-muted border-0 rounded-md px-2 py-2 text-sm w-full focus:outline-none focus:ring-1 focus:ring-ring";
+  const labelClass = "text-xs text-muted-foreground";
+
+  const hasActiveFilters = dateFrom || dateTo || tag || receiver;
+  const extraVisible = compact ? true : showExtra;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex gap-1.5">
+        <Input
+          placeholder="Search letters..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+          className={inputClass + " flex-1"}
+        />
+        {/* Mobile only: toggle button for extra filters */}
+        {!compact && (
+          <button
+            onClick={() => setShowExtra((v) => !v)}
+            className={`shrink-0 px-2 rounded-md text-xs border transition-colors ${
+              hasActiveFilters
+                ? "bg-primary text-primary-foreground border-primary"
+                : showExtra
+                ? "bg-muted text-foreground border-border"
+                : "bg-muted text-muted-foreground border-transparent"
+            }`}
+            aria-label="Toggle filters"
+          >
+            {hasActiveFilters ? "Filters ●" : "Filters"}
+          </button>
+        )}
+      </div>
+
+      {extraVisible && (
+        <>
+          {/* Date range */}
+          <div className="flex flex-col gap-1">
+            <span className={labelClass}>Date range</span>
+            <div className="flex items-center bg-muted rounded-md px-2 gap-1">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
+                className="flex-1 min-w-0 bg-transparent text-xs py-1.5 focus:outline-none"
+              />
+              <span className="text-muted-foreground text-xs shrink-0">–</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
+                className="flex-1 min-w-0 bg-transparent text-xs py-1.5 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Tag filter */}
+          {tags.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className={labelClass}>Tag</span>
+              <select
+                value={tag}
+                onChange={(e) => { setTag(e.target.value); resetPage(); }}
+                className={selectClass}
+              >
+                <option value="">All tags</option>
+                {tags.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Receiver filter */}
+          {receivers && receivers.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className={labelClass}>Recipient</span>
+              <select
+                value={receiver}
+                onChange={(e) => { setReceiver(e.target.value); resetPage(); }}
+                className={selectClass}
+              >
+                <option value="">All recipients</option>
+                {receivers.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setDateFrom(""); setDateTo(""); setTag(""); setReceiver(""); resetPage(); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline text-left"
+            >
+              Clear filters
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function LetterMetaPanel({ letterId }: { letterId: number }) {
+  const queryClient = useQueryClient();
   const { data: letter, isLoading } = useQuery({
     queryKey: ["letter", String(letterId)],
     queryFn: () => fetchLetter(letterId),
     enabled: !!letterId,
+  });
+
+  const toggleTask = useMutation({
+    mutationFn: ({ taskId, isDone }: { taskId: number; isDone: boolean }) =>
+      updateTask(taskId, { is_done: isDone }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["letter", String(letterId)] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
   });
 
   if (isLoading) {
@@ -69,10 +216,14 @@ function LetterMetaPanel({ letterId }: { letterId: number }) {
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Tasks</p>
           <div className="flex flex-col gap-1">
             {letter.tasks.map((task) => (
-              <div key={task.id} className="flex items-start gap-2 text-sm">
-                <span className={`mt-0.5 ${task.is_done ? "text-primary" : "text-muted-foreground"}`}>
-                  {task.is_done ? "✓" : "○"}
-                </span>
+              <div
+                key={task.id}
+                className="flex items-start gap-2 text-sm cursor-pointer"
+                onClick={() => toggleTask.mutate({ taskId: task.id, isDone: !task.is_done })}
+              >
+                <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] transition-colors ${
+                  task.is_done ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground text-transparent"
+                }`}>✓</span>
                 <span className={task.is_done ? "line-through opacity-50" : ""}>
                   {task.description}
                   {task.deadline && (
@@ -126,16 +277,24 @@ export function ArchivePage() {
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [tag, setTag] = useState("");
+  const [receiver, setReceiver] = useState("");
   const [page, setPage] = useState(0);
   const [selectedLetterId, setSelectedLetterId] = useState<number | null>(null);
 
+  const resetPage = () => setPage(0);
+
+  const activeSearch = search.length >= 3 ? search : "";
+
   const { data, isLoading } = useQuery({
-    queryKey: ["letters", search, dateFrom, dateTo, page],
+    queryKey: ["letters", activeSearch, dateFrom, dateTo, tag, receiver, page],
     queryFn: () =>
       fetchLetters({
-        q: search || undefined,
+        q: activeSearch || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
+        tag: tag || undefined,
+        receiver: receiver || undefined,
         offset: page * PAGE_SIZE,
         limit: PAGE_SIZE,
       }),
@@ -144,7 +303,6 @@ export function ArchivePage() {
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   const handleSelect = (id: number) => {
-    // On desktop: select in place; mobile: navigate
     setSelectedLetterId(id);
   };
 
@@ -152,31 +310,21 @@ export function ArchivePage() {
     navigate(`/letters/${id}`);
   };
 
+  const filterProps = {
+    search, setSearch,
+    dateFrom, setDateFrom,
+    dateTo, setDateTo,
+    tag, setTag,
+    receiver, setReceiver,
+    resetPage,
+  };
+
   return (
     <>
       {/* Mobile layout */}
       <div className="md:hidden flex flex-col gap-3 p-4">
         <h1 className="text-lg font-semibold">Archive</h1>
-        <Input
-          placeholder="Search letters..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-          className="bg-muted border-0 focus-visible:ring-1"
-        />
-        <div className="flex gap-2">
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => { setDateFrom(e.target.value); setPage(0); }}
-            className="flex-1 bg-muted border-0 focus-visible:ring-1"
-          />
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => { setDateTo(e.target.value); setPage(0); }}
-            className="flex-1 bg-muted border-0 focus-visible:ring-1"
-          />
-        </div>
+        <FilterPanel {...filterProps} compact={false} />
         {isLoading && (
           <p className="text-center text-sm text-muted-foreground py-8">Loading...</p>
         )}
@@ -208,29 +356,10 @@ export function ArchivePage() {
       {/* Desktop 3-pane layout */}
       <div className="hidden md:flex h-screen overflow-hidden">
         {/* Left pane: search + letter list */}
-        <div className="w-72 shrink-0 flex flex-col border-r bg-card overflow-hidden">
+        <div className="w-80 shrink-0 flex flex-col border-r bg-card overflow-hidden">
           <div className="flex flex-col gap-2 p-3 border-b">
             <h1 className="text-base font-semibold">Archive</h1>
-            <Input
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-              className="bg-muted border-0 focus-visible:ring-1 h-8 text-sm"
-            />
-            <div className="flex gap-1.5">
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); setPage(0); }}
-                className="flex-1 bg-muted border-0 focus-visible:ring-1 h-7 text-xs"
-              />
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => { setDateTo(e.target.value); setPage(0); }}
-                className="flex-1 bg-muted border-0 focus-visible:ring-1 h-7 text-xs"
-              />
-            </div>
+            <FilterPanel {...filterProps} compact={true} />
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
@@ -264,7 +393,7 @@ export function ArchivePage() {
         </div>
 
         {/* Middle pane: letter metadata */}
-        <div className="w-80 shrink-0 border-r overflow-hidden bg-background">
+        <div className="w-[28rem] shrink-0 border-r overflow-hidden bg-background">
           {selectedLetterId ? (
             <LetterMetaPanel letterId={selectedLetterId} />
           ) : (

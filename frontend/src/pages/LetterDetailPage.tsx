@@ -64,7 +64,9 @@ export function LetterDetailPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4 pb-20 max-w-2xl mx-auto">
+    <div className="md:flex md:h-screen md:overflow-hidden">
+    {/* Left: metadata */}
+    <div className="flex flex-col gap-4 p-4 pb-20 md:pb-4 md:w-1/2 md:overflow-y-auto md:border-r">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           ← Back
@@ -173,6 +175,7 @@ export function LetterDetailPage() {
               href={`/api/letters/${letter.id}/pdf`}
               target="_blank"
               rel="noreferrer"
+              className="md:hidden"
             >
               <Button variant="outline" size="sm" className="w-full">
                 View / Download PDF
@@ -232,6 +235,18 @@ export function LetterDetailPage() {
           )}
         </>
       )}
+    </div>
+
+    {/* Right: PDF (desktop only) */}
+    {letter.pdf_path && (
+      <div className="hidden md:block md:w-1/2 p-4 bg-muted/30">
+        <iframe
+          src={`/api/letters/${letter.id}/pdf`}
+          className="w-full h-full rounded-lg"
+          title="Letter PDF"
+        />
+      </div>
+    )}
     </div>
   );
 }

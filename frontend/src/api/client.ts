@@ -28,6 +28,8 @@ export async function fetchLetters(params: {
   q?: string;
   date_from?: string;
   date_to?: string;
+  tag?: string;
+  receiver?: string;
   offset?: number;
   limit?: number;
   order?: string;
@@ -36,10 +38,16 @@ export async function fetchLetters(params: {
   if (params.q) sp.set("q", params.q);
   if (params.date_from) sp.set("date_from", params.date_from);
   if (params.date_to) sp.set("date_to", params.date_to);
+  if (params.tag) sp.set("tag", params.tag);
+  if (params.receiver) sp.set("receiver", params.receiver);
   if (params.offset !== undefined) sp.set("offset", String(params.offset));
   if (params.limit !== undefined) sp.set("limit", String(params.limit));
   if (params.order) sp.set("order", params.order);
   return request<LetterListResponse>(`/letters?${sp}`);
+}
+
+export async function fetchReceivers(): Promise<string[]> {
+  return request<string[]>("/receivers");
 }
 
 export async function fetchLetter(id: number): Promise<Letter> {
