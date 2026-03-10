@@ -2,11 +2,11 @@ import { Link } from "react-router-dom";
 import { useSSE } from "@/hooks/useSSE";
 
 const STATUS_LABELS: Record<string, string> = {
-  queued: "Waiting in queue...",
-  processing: "Processing...",
-  enhancing: "Enhancing images...",
-  extracting: "Extracting text & metadata...",
-  saving: "Saving PDF & data...",
+  queued: "Queued",
+  processing: "Processing",
+  enhancing: "Enhancing",
+  extracting: "Extracting",
+  saving: "Saving",
 };
 
 interface JobStatusChipProps {
@@ -22,7 +22,7 @@ export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
 
   return (
     <div
-      className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium border ${
+      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border ${
         isDone
           ? "bg-green-50 border-green-200 text-green-800"
           : isError
@@ -31,7 +31,7 @@ export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
       }`}
     >
       {!isDone && !isError && (
-        <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
       )}
 
       {isDone && status.letter_id ? (
@@ -52,7 +52,7 @@ export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
       <button
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="ml-1 flex h-4 w-4 items-center justify-center rounded-full hover:bg-black/10 text-xs leading-none"
+        className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full hover:bg-black/10 text-xs leading-none"
       >
         ×
       </button>

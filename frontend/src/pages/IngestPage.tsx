@@ -45,7 +45,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
   const hasFiles = files.length > 0;
 
   return (
-    <div className="flex flex-col items-center gap-6 p-4 max-w-lg mx-auto">
+    <div className="flex flex-col items-center gap-6 p-4 max-w-lg mx-auto min-h-[calc(100dvh-5rem)]">
       {/* Branding */}
       <div className="flex flex-col items-center gap-1 pt-4">
         <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
 
       {/* Capture buttons */}
       {!hasFiles ? (
-        <div className="flex flex-col items-center gap-4 w-full">
+        <div className="flex flex-col items-center gap-4 w-full min-h-[calc(50dvh-6rem)] justify-end pb-4">
           <div className="flex gap-3">
             <Button
               variant="default"
@@ -120,26 +120,10 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
             ))}
           </div>
 
-          {/* Action row */}
-          <div className="flex gap-2 w-full max-w-md">
+          {/* Action row — pinned to bottom for thumb reach */}
+          <div className="mt-auto w-full max-w-md flex flex-col gap-2 pb-2">
             <Button
-              variant="outline"
-              size="sm"
-              className="gap-1"
-              onClick={() => cameraRef.current?.click()}
-            >
-              <Camera size={14} /> Camera
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1"
-              onClick={() => galleryRef.current?.click()}
-            >
-              <Images size={14} /> Gallery
-            </Button>
-            <Button
-              className="flex-1"
+              className="w-full h-14 text-base"
               onClick={handleProcess}
               disabled={uploading}
             >
@@ -147,6 +131,22 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
                 ? "Uploading..."
                 : `Process ${files.length} page${files.length > 1 ? "s" : ""}`}
             </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 h-12 gap-1.5"
+                onClick={() => cameraRef.current?.click()}
+              >
+                <Camera size={16} /> Camera
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1 h-12 gap-1.5"
+                onClick={() => galleryRef.current?.click()}
+              >
+                <Images size={16} /> Gallery
+              </Button>
+            </div>
           </div>
         </>
       )}
