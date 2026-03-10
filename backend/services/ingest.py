@@ -21,17 +21,18 @@ async def _load_setting(session: AsyncSession, key: str) -> list[str]:
     return []
 
 
+async def enhance_images(images: list[bytes]) -> list[bytes]:
+    return await processing.process_images(images)
+
+
 async def run_ingest(
     session: AsyncSession,
-    images: list[bytes],
+    processed: list[bytes],
     on_progress=None,
 ) -> Letter:
     async def report(step: str):
         if on_progress:
             await on_progress(step)
-
-    await report("enhancing")
-    processed = await processing.process_images(images)
 
     await report("extracting")
     recipients = await _load_setting(session, "recipients")
@@ -60,7 +61,7 @@ async def run_ingest(
         tags=metadata.get("tags"),
         full_text=metadata.get("full_text"),
         pdf_path=f"pdfs/{pdf_filename}",
-        page_count=len(images),
+        page_count=len(processed),
         raw_llm_response=metadata.get("raw_llm_response"),
     )
     session.add(letter)
@@ -81,5 +82,4 @@ async def run_ingest(
         session.add(task)
 
     await session.flush()
-    await report("done")
     return letter

@@ -3,7 +3,7 @@ import logging
 import uuid
 
 from backend import database
-from backend.services.ingest import run_ingest
+from backend.services.ingest import enhance_images, run_ingest
 
 logger = logging.getLogger(__name__)
 
@@ -29,25 +29,36 @@ async def enqueue(images: list[bytes]) -> str:
     return job_id
 
 
+async def _finish_ingest(job_id: str, processed: list[bytes]) -> None:
+    try:
+        async def on_progress(step: str):
+            _jobs[job_id]["status"] = step
+
+        async with database.async_session() as session:
+            async with session.begin():
+                letter = await run_ingest(session, processed, on_progress=on_progress)
+                _jobs[job_id]["letter_id"] = letter.id
+
+        _jobs[job_id]["status"] = "done"
+    except Exception:
+        logger.exception("Ingest job %s failed", job_id)
+        _jobs[job_id]["status"] = "error"
+        _jobs[job_id]["error"] = "Processing failed"
+
+
 async def worker():
     q = _get_queue()
     while True:
         job_id, images = await q.get()
         try:
-            _jobs[job_id]["status"] = "processing"
-
-            async def on_progress(step: str):
-                _jobs[job_id]["status"] = step
-
-            async with database.async_session() as session:
-                async with session.begin():
-                    letter = await run_ingest(session, images, on_progress=on_progress)
-                    _jobs[job_id]["letter_id"] = letter.id
-
-            _jobs[job_id]["status"] = "done"
+            _jobs[job_id]["status"] = "enhancing"
+            processed = await enhance_images(images)
         except Exception:
-            logger.exception("Ingest job %s failed", job_id)
+            logger.exception("Ingest job %s failed during enhancing", job_id)
             _jobs[job_id]["status"] = "error"
             _jobs[job_id]["error"] = "Processing failed"
-        finally:
             q.task_done()
+            continue
+
+        q.task_done()
+        asyncio.create_task(_finish_ingest(job_id, processed))
