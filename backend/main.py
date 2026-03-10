@@ -10,18 +10,22 @@ from fastapi.staticfiles import StaticFiles
 from backend.database import run_migrations
 from backend.queue import worker
 from backend.routes import letters, senders, settings, tasks
+from backend.services.processing import idle_unloader
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     run_migrations()
     worker_task = asyncio.create_task(worker())
+    unloader_task = asyncio.create_task(idle_unloader())
     yield
     worker_task.cancel()
-    try:
-        await worker_task
-    except asyncio.CancelledError:
-        pass
+    unloader_task.cancel()
+    for task in (worker_task, unloader_task):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Letter Scanner", lifespan=lifespan)
