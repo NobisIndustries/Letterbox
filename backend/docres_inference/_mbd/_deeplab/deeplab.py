@@ -23,9 +23,22 @@ class DeepLab(nn.Module):
         self.freeze_bn = freeze_bn
 
     def forward(self, input):
+        import time
+
+        t = time.time()
         x, low_level_feat = self.backbone(input)
+        print(f"[DocRes]         backbone (ResNet101): {time.time() - t:.3f}s  x={tuple(x.shape)} low={tuple(low_level_feat.shape)}")
+
+        t = time.time()
         x = self.aspp(x)
+        print(f"[DocRes]         ASPP: {time.time() - t:.3f}s  x={tuple(x.shape)}")
+
+        t = time.time()
         x = self.decoder(x, low_level_feat)
+        print(f"[DocRes]         decoder: {time.time() - t:.3f}s  x={tuple(x.shape)}")
+
+        t = time.time()
         x = F.interpolate(x, size=input.size()[2:], mode='bilinear', align_corners=True)
+        print(f"[DocRes]         interpolate: {time.time() - t:.3f}s")
 
         return x

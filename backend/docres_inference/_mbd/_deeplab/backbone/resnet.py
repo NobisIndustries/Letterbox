@@ -105,16 +105,32 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, input):
+        import time
+
+        t = time.time()
         x = self.conv1(input)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
+        print(f"[DocRes]           stem (conv1+bn+pool): {time.time() - t:.3f}s  x={tuple(x.shape)}")
 
+        t = time.time()
         x = self.layer1(x)
+        print(f"[DocRes]           layer1 (3 blocks): {time.time() - t:.3f}s  x={tuple(x.shape)}")
         low_level_feat = x
+
+        t = time.time()
         x = self.layer2(x)
+        print(f"[DocRes]           layer2 (4 blocks): {time.time() - t:.3f}s  x={tuple(x.shape)}")
+
+        t = time.time()
         x = self.layer3(x)
+        print(f"[DocRes]           layer3 (23 blocks): {time.time() - t:.3f}s  x={tuple(x.shape)}")
+
+        t = time.time()
         x = self.layer4(x)
+        print(f"[DocRes]           layer4 (3 blocks, dilated): {time.time() - t:.3f}s  x={tuple(x.shape)}")
+
         return x, low_level_feat
 
     def _init_weight(self):
