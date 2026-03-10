@@ -53,6 +53,7 @@ class DocResProcessor:
             self._device = torch.device(device)
 
         print(f"[DocRes] Using device: {self._device}")
+        print(f"[DocRes] PyTorch threads: {torch.get_num_threads()}, interop threads: {torch.get_num_interop_threads()}")
 
         t0 = time.time()
         # Load Restormer model (used only for dewarping)

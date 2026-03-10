@@ -47,6 +47,7 @@ def net1_net2_infer_single_im(img, seg_model, device, output_size=(256, 256)):
     Returns:
         mask_pred: ndarray HxW uint8
     """
+    import os
     import time
 
     t = time.time()
@@ -55,6 +56,18 @@ def net1_net2_infer_single_im(img, seg_model, device, output_size=(256, 256)):
     img_resized = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB)
     img_tensor = cvimg2torch(img_resized).to(device)
     print(f"[DocRes]       MBD preprocess (resize+blur+rgb+tensor): {time.time() - t:.3f}s")
+
+    # Memory diagnostics
+    try:
+        import psutil
+        proc = psutil.Process(os.getpid())
+        mem = proc.memory_info()
+        print(f"[DocRes]       Memory before MBD forward: RSS={mem.rss / 1024**2:.0f}MB, VMS={mem.vms / 1024**2:.0f}MB")
+    except ImportError:
+        pass
+
+    print(f"[DocRes]       Input tensor: shape={tuple(img_tensor.shape)}, dtype={img_tensor.dtype}")
+    print(f"[DocRes]       PyTorch threads: {torch.get_num_threads()}")
 
     t = time.time()
     with torch.inference_mode():
