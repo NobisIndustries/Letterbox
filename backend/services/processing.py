@@ -10,8 +10,8 @@ from backend.config import settings
 logger = logging.getLogger(__name__)
 
 _processor = None
-_last_used: float = 0.0
-_IDLE_TIMEOUT = 15 * 60  # 15 minutes
+_last_used: float = time.monotonic()
+_IDLE_TIMEOUT = 10 * 60  # 10 minutes
 
 
 def _get_processor():
@@ -37,12 +37,11 @@ def _unload_processor():
 
 async def idle_unloader():
     """Periodically unloads model weights if idle for more than _IDLE_TIMEOUT seconds."""
-    check_interval = 5 * 60  # check every 5 minutes
+    check_interval = 3 * 60  # check every 3 minutes
     while True:
         await asyncio.sleep(check_interval)
         if _processor is not None and time.monotonic() - _last_used > _IDLE_TIMEOUT:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, _unload_processor)
+            _unload_processor()
 
 
 def _process_sync(images: list[bytes]) -> list[bytes]:
