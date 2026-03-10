@@ -21,8 +21,19 @@ async def _load_setting(session: AsyncSession, key: str) -> list[str]:
     return []
 
 
+async def load_dewarping_method(session: AsyncSession) -> str:
+    """Load the dewarping method from settings. Returns 'deep_learning' or 'classic'."""
+    values = await _load_setting(session, "dewarping_method")
+    if values and values[0] in ("classic", "deep_learning"):
+        return values[0]
+    return "deep_learning"
+
+
 async def enhance_images(images: list[bytes]) -> list[bytes]:
-    return await processing.process_images(images)
+    from backend import database
+    async with database.async_session() as session:
+        method = await load_dewarping_method(session)
+    return await processing.process_images(images, dewarping_method=method)
 
 
 async def run_ingest(

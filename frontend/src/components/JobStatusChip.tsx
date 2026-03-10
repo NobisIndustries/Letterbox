@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSSE } from "@/hooks/useSSE";
 
@@ -19,6 +20,12 @@ export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
 
   const isDone = status?.status === "done";
   const isError = status?.status === "error";
+
+  useEffect(() => {
+    if (!isDone) return;
+    const timer = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(timer);
+  }, [isDone, onDismiss]);
 
   return (
     <div

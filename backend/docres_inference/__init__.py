@@ -163,11 +163,55 @@ class DocResProcessor:
 
         return net1_net2_infer_single_im(img, self._seg_model, device)
 
+    def _crop_to_document(self, img: np.ndarray) -> tuple[np.ndarray, str]:
+        """Crop image to the document bounding box using MBD mask.
+
+        Also detects orientation. Returns (cropped_image, orientation).
+        If cropping fails, returns the original image.
+        """
+        from ._mbd import net1_net2_infer_single_im
+
+        img_h, img_w = img.shape[:2]
+        mask = net1_net2_infer_single_im(img, self._seg_model, self._device)
+
+        # Scale mask to original image size
+        mask_full = cv2.resize(mask, (img_w, img_h), interpolation=cv2.INTER_NEAREST)
+
+        contours, _ = cv2.findContours(mask_full, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            return img, "portrait"
+
+        largest = max(contours, key=cv2.contourArea)
+        x, y, bw, bh = cv2.boundingRect(largest)
+
+        # Add a small margin (2%) but stay within image bounds
+        margin_x = int(bw * 0.02)
+        margin_y = int(bh * 0.02)
+        x = max(0, x - margin_x)
+        y = max(0, y - margin_y)
+        bw = min(img_w - x, bw + 2 * margin_x)
+        bh = min(img_h - y, bh + 2 * margin_y)
+
+        if bw < 100 or bh < 100:
+            return img, "portrait"
+
+        cropped = img[y:y+bh, x:x+bw]
+        orientation = "landscape" if bw > bh * 1.1 else "portrait"
+        return cropped, orientation
+
     def _dewarping(self, im_org: np.ndarray) -> np.ndarray:
         INPUT_SIZE = 256
-        h, w = im_org.shape[:2]
 
-        im_masked, prompt_org = dewarp_prompt(im_org, self._mbd_infer, self._device)
+        # Crop to document region so Restormer sees the correct aspect ratio
+        im_cropped, orientation = self._crop_to_document(im_org)
+
+        # Rotate landscape → portrait so Restormer can dewarp properly
+        if orientation == "landscape":
+            im_cropped = cv2.rotate(im_cropped, cv2.ROTATE_90_CLOCKWISE)
+
+        h, w = im_cropped.shape[:2]
+
+        im_masked, prompt_org = dewarp_prompt(im_cropped, self._mbd_infer, self._device)
 
         # im_masked is already 256x256 from dewarp_prompt
         im_masked = im_masked / 255.0
@@ -190,7 +234,10 @@ class DocResProcessor:
             pred = cv2.blur(pred, (3, 3), borderType=cv2.BORDER_REPLICATE)
         pred = cv2.resize(pred, (w, h)) * (w, h)
         pred = pred.astype(np.float32)
-        out_im = cv2.remap(im_org, pred[:, :, 0], pred[:, :, 1], cv2.INTER_LINEAR)
+        out_im = cv2.remap(im_cropped, pred[:, :, 0], pred[:, :, 1], cv2.INTER_LINEAR)
+
+        if orientation == "landscape":
+            out_im = cv2.rotate(out_im, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
         return out_im
 

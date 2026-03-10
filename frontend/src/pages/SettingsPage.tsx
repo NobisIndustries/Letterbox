@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchSetting, updateSetting } from "@/api/client";
+import { cn } from "@/lib/utils";
 
 function SettingList({ settingKey, label, description }: { settingKey: string; label: string; description?: string }) {
   const queryClient = useQueryClient();
@@ -75,10 +76,61 @@ function SettingList({ settingKey, label, description }: { settingKey: string; l
   );
 }
 
+function DewarpingMethodToggle() {
+  const queryClient = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["settings", "dewarping_method"],
+    queryFn: () => fetchSetting("dewarping_method"),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (value: string[]) => updateSetting("dewarping_method", value),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["settings", "dewarping_method"] }),
+  });
+
+  const current = data?.value?.[0] ?? "deep_learning";
+
+  const options = [
+    { value: "deep_learning", label: "Deep Learning", desc: "Neural network dewarping (slower, handles complex distortions)" },
+    { value: "classic", label: "Classic", desc: "Perspective correction via 4-corner detection (faster, less precise)" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Dewarping Method</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          How scanned letter images are straightened and corrected before OCR.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => mutation.mutate([opt.value])}
+            className={cn(
+              "w-full text-left rounded-md border p-3 transition-colors",
+              current === opt.value
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-muted-foreground/50"
+            )}
+          >
+            <div className="text-sm font-medium">{opt.label}</div>
+            <div className="text-xs text-muted-foreground">{opt.desc}</div>
+          </button>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   return (
     <div className="flex flex-col gap-3 p-4 max-w-lg mx-auto">
       <h1 className="text-lg font-semibold">Settings</h1>
+      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-2">Organisation</h2>
       <SettingList
         settingKey="recipients"
         label="Recipients"
@@ -89,6 +141,8 @@ export function SettingsPage() {
         label="Tags"
         description="A vocabulary of labels the LLM can assign to letters (e.g. 'invoice', 'tax', 'insurance'). Add tags here to help the LLM categorise your mail."
       />
+      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-2">Technical</h2>
+      <DewarpingMethodToggle />
     </div>
   );
 }

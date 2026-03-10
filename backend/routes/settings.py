@@ -10,7 +10,7 @@ from backend.schemas import SettingOut, SettingUpdate
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
-ALLOWED_KEYS = {"recipients", "tags"}
+ALLOWED_KEYS = {"recipients", "tags", "dewarping_method"}
 
 
 @router.get("/{key}", response_model=SettingOut)
