@@ -36,7 +36,8 @@ export function SideNav({ collapsed, onToggle }: SideNavProps) {
       {/* Header */}
       <div className={`flex items-center border-b h-14 shrink-0 ${collapsed ? "justify-center" : "px-4 gap-2"}`}>
         {!collapsed && (
-          <span className="text-sm font-semibold text-primary tracking-wide flex-1 truncate">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-primary tracking-wide flex-1 truncate">
+            <Mail size={16} />
             Letterbox
           </span>
         )}
