@@ -350,7 +350,10 @@ export function ArchivePage() {
     <>
       {/* Mobile layout */}
       <div className="md:hidden flex flex-col gap-3 p-4">
-        <h1 className="text-lg font-semibold">Archive</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold">Archive</h1>
+          {data && <span className="text-sm text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
+        </div>
         <FilterPanel {...filterProps} compact={false} />
         {isLoading && (
           <p className="text-center text-sm text-muted-foreground py-8">Loading...</p>
@@ -379,7 +382,10 @@ export function ArchivePage() {
         {/* Left pane: search + letter list */}
         <div className="w-80 shrink-0 flex flex-col border-r bg-card overflow-hidden">
           <div className="flex flex-col gap-2 p-3 border-b">
-            <h1 className="text-base font-semibold">Archive</h1>
+            <div className="flex items-center justify-between">
+              <h1 className="text-base font-semibold">Archive</h1>
+              {data && <span className="text-xs text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
+            </div>
             <FilterPanel {...filterProps} compact={true} />
           </div>
 

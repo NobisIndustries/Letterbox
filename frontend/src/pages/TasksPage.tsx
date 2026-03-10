@@ -37,7 +37,10 @@ export function TasksPage() {
 
   return (
     <div className="flex flex-col gap-3 p-4 max-w-2xl mx-auto">
-      <h1 className="text-lg font-semibold">Tasks</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Tasks</h1>
+        {tasks && <span className="text-sm text-muted-foreground">{tasks.length} {tasks.length === 1 ? "task" : "tasks"}</span>}
+      </div>
 
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex gap-1">
