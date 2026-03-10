@@ -24,7 +24,7 @@ def _process_sync(images: list[bytes]) -> list[bytes]:
     results = []
     with tempfile.TemporaryDirectory() as tmpdir:
         output_paths = [str(Path(tmpdir) / f"out_{i}.jpg") for i in range(len(images))]
-        proc.process(images, output_paths)
+        proc.process(images, output_paths, max_output_width=settings.max_image_width)
         for p in output_paths:
             results.append(Path(p).read_bytes())
     return results

@@ -31,27 +31,37 @@ def _load_seg_model(model_path, device):
     return seg_model
 
 
-def net1_net2_infer_single_im(img, seg_model, device):
+def net1_net2_infer_single_im(img, seg_model, device, output_size=(256, 256)):
     """Run MBD segmentation to produce a document mask.
 
     Args:
         img: ndarray HxWx3 uint8 (BGR)
         seg_model: loaded DeepLab model
         device: torch.device
+        output_size: (h, w) tuple for mask output size. Defaults to (256, 256)
+            to match the dewarping prompt size and avoid unnecessary upscaling.
 
     Returns:
         mask_pred: ndarray HxW uint8
     """
-    h_org, w_org = img.shape[:2]
+    import time
+
+    t = time.time()
     img_resized = cv2.resize(img, (448, 448))
     img_resized = cv2.GaussianBlur(img_resized, (15, 15), 0, 0)
     img_resized = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB)
     img_tensor = cvimg2torch(img_resized).to(device)
+    print(f"[DocRes]       MBD preprocess (resize+blur+rgb+tensor): {time.time() - t:.3f}s")
 
-    with torch.no_grad():
+    t = time.time()
+    with torch.inference_mode():
         pred = seg_model(img_tensor)
+    print(f"[DocRes]       MBD DeepLab forward pass: {time.time() - t:.3f}s")
+
+    t = time.time()
+    with torch.inference_mode():
         mask_pred = pred[:, 0, :, :].unsqueeze(1)
-        mask_pred = F.interpolate(mask_pred, (h_org, w_org))
+        mask_pred = F.interpolate(mask_pred, output_size)
         mask_pred = mask_pred.squeeze(0).squeeze(0).cpu().numpy()
         mask_pred = (mask_pred * 255).astype(np.uint8)
         kernel = np.ones((3, 3))
@@ -59,5 +69,6 @@ def net1_net2_infer_single_im(img, seg_model, device):
         mask_pred = cv2.erode(mask_pred, kernel, iterations=3)
         mask_pred[mask_pred > 100] = 255
         mask_pred[mask_pred < 100] = 0
+    print(f"[DocRes]       MBD postprocess (interp+morph {output_size[1]}x{output_size[0]}): {time.time() - t:.3f}s")
 
     return mask_pred

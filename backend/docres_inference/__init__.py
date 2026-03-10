@@ -96,15 +96,18 @@ class DocResProcessor:
         images: list[str | bytes],
         output_paths: list[str | Path],
         jpeg_quality: int = 95,
+        max_output_width: int = 0,
     ) -> None:
         """Process images through the restoration pipeline.
 
-        Pipeline: dewarping (model) -> enhance (OpenCV).
+        Pipeline: dewarping (model) -> downscale -> enhance (OpenCV).
 
         Args:
             images: List of file paths or raw image bytes (BGR).
             output_paths: List of output file paths (one per input image).
             jpeg_quality: Output JPEG quality (1-100).
+            max_output_width: Downscale after dewarping to this width before
+                enhancement. 0 = no downscale.
         """
         if len(images) != len(output_paths):
             raise ValueError(
@@ -124,6 +127,13 @@ class DocResProcessor:
             t0 = time.time()
             img = self._dewarping(img)
             print(f"[DocRes]   Dewarping done in {time.time() - t0:.1f}s")
+
+            if max_output_width and img.shape[1] > max_output_width:
+                t0 = time.time()
+                ratio = max_output_width / img.shape[1]
+                new_size = (max_output_width, int(img.shape[0] * ratio))
+                img = cv2.resize(img, new_size, interpolation=cv2.INTER_AREA)
+                print(f"[DocRes]   Downscaled to {new_size[0]}x{new_size[1]} in {time.time() - t0:.3f}s")
 
             t0 = time.time()
             img = self.fast_enhance(img)
@@ -158,11 +168,14 @@ class DocResProcessor:
 
     def _dewarping(self, im_org: np.ndarray) -> np.ndarray:
         INPUT_SIZE = 256
+        h, w = im_org.shape[:2]
 
-        im_masked, prompt_org = dewarp_prompt(im_org.copy(), self._mbd_infer, self._device)
+        t = time.time()
+        im_masked, prompt_org = dewarp_prompt(im_org, self._mbd_infer, self._device)
+        print(f"[DocRes]     dewarp_prompt (MBD seg + mask): {time.time() - t:.3f}s")
 
-        h, w = im_masked.shape[:2]
-        im_masked = cv2.resize(im_masked, (INPUT_SIZE, INPUT_SIZE))
+        t = time.time()
+        # im_masked is already 256x256 from dewarp_prompt
         im_masked = im_masked / 255.0
         im_masked = torch.from_numpy(im_masked.transpose(2, 0, 1)).unsqueeze(0)
         im_masked = im_masked.float().to(self._device)
@@ -171,19 +184,34 @@ class DocResProcessor:
         prompt = prompt.float().to(self._device)
 
         in_im = torch.cat((im_masked, prompt), dim=1)
+        print(f"[DocRes]     preprocess (resize+to_tensor): {time.time() - t:.3f}s")
 
         base_coord = getBasecoord(INPUT_SIZE, INPUT_SIZE) / INPUT_SIZE
+
+        t = time.time()
         with torch.inference_mode():
             pred = self._model(in_im)
+        print(f"[DocRes]     Restormer forward pass: {time.time() - t:.3f}s")
+
+        t = time.time()
+        with torch.inference_mode():
             pred = pred[0][:2].permute(1, 2, 0).cpu().numpy()
             pred = pred + base_coord
+        print(f"[DocRes]     pred to numpy + base_coord: {time.time() - t:.3f}s")
 
-        # smooth
+        t = time.time()
         for _ in range(15):
             pred = cv2.blur(pred, (3, 3), borderType=cv2.BORDER_REPLICATE)
+        print(f"[DocRes]     15x blur smoothing (256x256): {time.time() - t:.3f}s")
+
+        t = time.time()
         pred = cv2.resize(pred, (w, h)) * (w, h)
         pred = pred.astype(np.float32)
+        print(f"[DocRes]     resize pred to {w}x{h}: {time.time() - t:.3f}s")
+
+        t = time.time()
         out_im = cv2.remap(im_org, pred[:, :, 0], pred[:, :, 1], cv2.INTER_LINEAR)
+        print(f"[DocRes]     cv2.remap {w}x{h}: {time.time() - t:.3f}s")
 
         return out_im
 
@@ -214,35 +242,47 @@ class DocResProcessor:
             clahe_grid: CLAHE tile grid size.
             white_balance: Whether to apply gray-world white balance.
         """
+        h, w = img.shape[:2]
+        print(f"[DocRes]     enhance input: {w}x{h}")
+
+        t = time.time()
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
         l_f = l.astype(np.float32)
+        print(f"[DocRes]     BGR->LAB + split: {time.time() - t:.3f}s")
 
         # --- Shadow removal: additive illumination correction ---
         if shadow_strength > 0:
+            t = time.time()
             kernel = np.ones((shadow_dilate_size, shadow_dilate_size), np.uint8)
             dilated = cv2.dilate(l, kernel)
             bg = cv2.medianBlur(dilated, shadow_median_size).astype(np.float32)
             target = np.max(bg)
             correction = (target - bg) * shadow_strength
             l_f = np.clip(l_f + correction, 0, 255)
+            print(f"[DocRes]     shadow removal (dilate+medianBlur+correct): {time.time() - t:.3f}s")
 
         # --- Percentile histogram stretch ---
+        t = time.time()
         lo = np.percentile(l_f, stretch_low_pct)
         hi = np.percentile(l_f, stretch_high_pct)
         if hi - lo > 10:
             l_f = np.clip((l_f - lo) / (hi - lo) * 255, 0, 255)
         l = l_f.astype(np.uint8)
+        print(f"[DocRes]     histogram stretch: {time.time() - t:.3f}s")
 
         # --- CLAHE ---
         if clahe_clip > 0:
             clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(clahe_grid, clahe_grid))
             l = clahe.apply(l)
 
+        t = time.time()
         enhanced = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+        print(f"[DocRes]     LAB->BGR merge: {time.time() - t:.3f}s")
 
         # --- Gray-world white balance ---
         if white_balance:
+            t = time.time()
             avg_b, avg_g, avg_r = [enhanced[:, :, i].mean() for i in range(3)]
             avg_gray = (avg_b + avg_g + avg_r) / 3
             enhanced = enhanced.astype(np.float32)
@@ -250,5 +290,6 @@ class DocResProcessor:
             enhanced[:, :, 1] *= avg_gray / max(avg_g, 1)
             enhanced[:, :, 2] *= avg_gray / max(avg_r, 1)
             enhanced = np.clip(enhanced, 0, 255).astype(np.uint8)
+            print(f"[DocRes]     white balance: {time.time() - t:.3f}s")
 
         return enhanced
