@@ -25,7 +25,7 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
 
 Rules:
 - Transcribe the full text faithfully, preserving the original language
-- Extract main action items/deadlines as tasks - only do important ones, limit to max 2. None for marketing letters except coupons.
+- Only create tasks for items requiring concrete personal action with real consequences: payment deadlines, legal/contractual deadlines, appointments, required document returns, subscription cancellations before auto-renewal, redeemable coupon codes (include the code in the description), or findings/results that warrant professional follow-up (e.g. abnormal lab values). Do NOT create tasks for: marketing calls-to-action, website links, advisory suggestions, informational notices without deadlines, or anything where inaction has no real consequence. Most letters get 0 tasks. Max 2 tasks total.
 - If a field cannot be determined, use null (or empty list for keywords/tasks/tags)
 - For creation_date, look for dates printed on the letter
 - Keywords should capture the main topics (3-8 keywords)

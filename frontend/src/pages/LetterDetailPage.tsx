@@ -29,13 +29,17 @@ export function LetterDetailPage() {
       updateLetter(Number(id), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["letter", id] });
+      queryClient.invalidateQueries({ queryKey: ["letters"] });
       setEditing(false);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteLetter(Number(id)),
-    onSuccess: () => navigate("/archive"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["letters"] });
+      navigate("/archive");
+    },
   });
 
   const toggleTask = useMutation({

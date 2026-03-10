@@ -5,9 +5,10 @@ interface LetterCardProps {
   letter: LetterListItem;
   selected?: boolean;
   onSelect?: (id: number) => void;
+  sortOrder?: "creation_date" | "ingested_at";
 }
 
-export function LetterCard({ letter, selected, onSelect }: LetterCardProps) {
+export function LetterCard({ letter, selected, onSelect, sortOrder = "creation_date" }: LetterCardProps) {
   const navigate = useNavigate();
 
   const handleClick = (e: React.MouseEvent) => {
@@ -37,9 +38,15 @@ export function LetterCard({ letter, selected, onSelect }: LetterCardProps) {
             → {letter.receiver || "Unknown recipient"}
           </p>
         </div>
-        {letter.creation_date && (
-          <span className="text-xs text-muted-foreground shrink-0">{letter.creation_date}</span>
-        )}
+        {sortOrder === "ingested_at" ? (
+          <span className="text-xs text-muted-foreground shrink-0">
+            {new Date(letter.ingested_at).toLocaleDateString()}
+          </span>
+        ) : letter.creation_date ? (
+          <span className="text-xs text-muted-foreground shrink-0">
+            {new Date(letter.creation_date + "T00:00:00").toLocaleDateString()}
+          </span>
+        ) : null}
       </div>
       {letter.title && (
         <p className="text-xs text-muted-foreground truncate mt-1 italic">{letter.title}</p>

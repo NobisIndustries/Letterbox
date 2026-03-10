@@ -277,6 +277,7 @@ export function ArchivePage() {
   const [tag, setTag] = useState("");
   const [receiver, setReceiver] = useState("");
   const [page, setPage] = useState(0);
+  const [order, setOrder] = useState<"creation_date" | "ingested_at">("creation_date");
   const [selectedLetterId, setSelectedLetterId] = useState<number | null>(null);
 
   const resetPage = () => setPage(0);
@@ -284,7 +285,7 @@ export function ArchivePage() {
   const activeSearch = search.length >= 3 ? search : "";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["letters", activeSearch, dateFrom, dateTo, tag, receiver, page],
+    queryKey: ["letters", activeSearch, dateFrom, dateTo, tag, receiver, page, order],
     queryFn: () =>
       fetchLetters({
         q: activeSearch || undefined,
@@ -294,6 +295,7 @@ export function ArchivePage() {
         receiver: receiver || undefined,
         offset: page * PAGE_SIZE,
         limit: PAGE_SIZE,
+        order,
       }),
   });
 
@@ -307,7 +309,10 @@ export function ArchivePage() {
   const renderLetterList = (items: LetterListItem[], onSelect: (id: number) => void, withSelected = false) => {
     let lastMonth = "";
     return items.map((letter) => {
-      const month = letter.creation_date ? monthLabel(letter.creation_date) : "";
+      const dateStr = order === "ingested_at"
+        ? letter.ingested_at.slice(0, 10)
+        : letter.creation_date ?? "";
+      const month = dateStr ? monthLabel(dateStr) : "";
       const showDivider = month && month !== lastMonth;
       if (showDivider) lastMonth = month;
       return (
@@ -323,6 +328,7 @@ export function ArchivePage() {
             letter={letter}
             selected={withSelected && selectedLetterId === letter.id}
             onSelect={onSelect}
+            sortOrder={order}
           />
         </div>
       );
@@ -352,7 +358,16 @@ export function ArchivePage() {
       <div className="md:hidden flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Archive</h1>
-          {data && <span className="text-sm text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
+          <div className="flex items-center gap-2">
+            {data && <span className="text-sm text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
+            <button
+              onClick={() => { setOrder(o => o === "creation_date" ? "ingested_at" : "creation_date"); resetPage(); }}
+              className={`text-xs px-2 py-1 rounded-md border transition-colors ${order === "ingested_at" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent"}`}
+              title={order === "ingested_at" ? "Sorted by date added" : "Sorted by letter date"}
+            >
+              {order === "ingested_at" ? "Added" : "Date"}
+            </button>
+          </div>
         </div>
         <FilterPanel {...filterProps} compact={false} />
         {isLoading && (
@@ -384,7 +399,16 @@ export function ArchivePage() {
           <div className="flex flex-col gap-2 p-3 border-b">
             <div className="flex items-center justify-between">
               <h1 className="text-base font-semibold">Archive</h1>
-              {data && <span className="text-xs text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
+              <div className="flex items-center gap-2">
+                {data && <span className="text-xs text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
+                <button
+                  onClick={() => { setOrder(o => o === "creation_date" ? "ingested_at" : "creation_date"); resetPage(); }}
+                  className={`text-xs px-2 py-0.5 rounded-md border transition-colors ${order === "ingested_at" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent"}`}
+                  title={order === "ingested_at" ? "Sorted by date added" : "Sorted by letter date"}
+                >
+                  {order === "ingested_at" ? "Added" : "Date"}
+                </button>
+              </div>
             </div>
             <FilterPanel {...filterProps} compact={true} />
           </div>
