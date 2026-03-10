@@ -1,6 +1,6 @@
-# Letterbox
+# ✉️ Letterbox
 
-A personal tool for digitizing physical letters. Photograph a letter, and Letterbox will dewarp and enhance the image, extract the full text and metadata via LLM, and store it as a searchable PDF.
+A personal tool for digitizing physical letters. Photograph a letter, and Letterbox cleans it up, extracts text and metadata, detects todos with deadlines, and stores everything as a searchable PDF.
 
 Built for personal use on a home network. Not production software.
 
@@ -8,7 +8,7 @@ Built for personal use on a home network. Not production software.
 
 1. **Capture** — Upload photos of letter pages from your phone or desktop
 2. **Enhance** — Dewarp and clean up the images using [DocRes](https://github.com/ZZZHANG-jx/DocRes) (local ML inference)
-3. **Extract** — Send images to Gemini Flash (via OpenRouter) to pull out full text, sender, date, tags, and action items
+3. **Extract** — Send images to Gemini Flash (via OpenRouter) to pull out full text, sender, date, tags, and todos
 4. **Store** — Save as a compressed PDF, indexed in SQLite with full-text search
 
 ## Limitations
@@ -22,12 +22,11 @@ Built for personal use on a home network. Not production software.
 **Slow on CPU.** The DocRes dewarping model runs on CPU in the container (no GPU). Expect 10–30 seconds per image depending on your hardware.
 
 **LLM extraction is imperfect.** Dates, senders, and tags are extracted by a language model and will occasionally be wrong.
-
 ## Requirements
 
 - Docker + Docker Compose
 - An [OpenRouter](https://openrouter.ai) API key (Gemini Flash is cheap — a few fractions of a cent per letter)
-- ~Gb MB disk for the ML models (downloaded automatically on first run)
+- ~1Gb disk for the ML models (downloaded automatically on first run) + disk space for letter pdfs
 
 ## Setup
 
