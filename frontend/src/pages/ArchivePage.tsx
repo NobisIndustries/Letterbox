@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { LetterListItem } from "@/types";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,6 @@ function FilterPanel({
   const labelClass = "text-xs text-muted-foreground";
 
   const hasActiveFilters = dateFrom || dateTo || tag || receiver;
-  const extraVisible = compact ? true : showExtra;
 
   return (
     <div className="flex flex-col gap-2">
@@ -57,25 +57,22 @@ function FilterPanel({
           onChange={(e) => { setSearch(e.target.value); resetPage(); }}
           className={inputClass + " flex-1"}
         />
-        {/* Mobile only: toggle button for extra filters */}
-        {!compact && (
-          <button
-            onClick={() => setShowExtra((v) => !v)}
-            className={`shrink-0 px-2 rounded-md text-xs border transition-colors ${
-              hasActiveFilters
-                ? "bg-primary text-primary-foreground border-primary"
-                : showExtra
-                ? "bg-muted text-foreground border-border"
-                : "bg-muted text-muted-foreground border-transparent"
-            }`}
-            aria-label="Toggle filters"
-          >
-            {hasActiveFilters ? "Filters ●" : "Filters"}
-          </button>
-        )}
+        <button
+          onClick={() => setShowExtra((v) => !v)}
+          className={`shrink-0 px-2 rounded-md text-xs border transition-colors ${
+            hasActiveFilters
+              ? "bg-primary text-primary-foreground border-primary"
+              : showExtra
+              ? "bg-muted text-foreground border-border"
+              : "bg-muted text-muted-foreground border-transparent"
+          }`}
+          aria-label="Toggle filters"
+        >
+          {hasActiveFilters ? "Filters ●" : "Filters"}
+        </button>
       </div>
 
-      {extraVisible && (
+      {showExtra && (
         <>
           {/* Date range */}
           <div className="flex flex-col gap-1">
@@ -302,6 +299,36 @@ export function ArchivePage() {
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
+  const monthLabel = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleString("default", { month: "long", year: "numeric" });
+  };
+
+  const renderLetterList = (items: LetterListItem[], onSelect: (id: number) => void, withSelected = false) => {
+    let lastMonth = "";
+    return items.map((letter) => {
+      const month = letter.creation_date ? monthLabel(letter.creation_date) : "";
+      const showDivider = month && month !== lastMonth;
+      if (showDivider) lastMonth = month;
+      return (
+        <div key={letter.id}>
+          {showDivider && (
+            <div className="flex items-center gap-2 px-1 pt-2 pb-1">
+              <div className="flex-1 h-px bg-primary/20" />
+              <span className="text-[10px] font-medium text-primary/60 uppercase tracking-widest shrink-0">{month}</span>
+              <div className="flex-1 h-px bg-primary/20" />
+            </div>
+          )}
+          <LetterCard
+            letter={letter}
+            selected={withSelected && selectedLetterId === letter.id}
+            onSelect={onSelect}
+          />
+        </div>
+      );
+    });
+  };
+
   const handleSelect = (id: number) => {
     setSelectedLetterId(id);
   };
@@ -332,13 +359,7 @@ export function ArchivePage() {
           <p className="text-center text-sm text-muted-foreground py-8">No letters found</p>
         )}
         <div className="flex flex-col gap-2">
-          {data?.items.map((letter) => (
-            <LetterCard
-              key={letter.id}
-              letter={letter}
-              onSelect={handleMobileSelect}
-            />
-          ))}
+          {data && renderLetterList(data.items, handleMobileSelect)}
         </div>
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 pt-2">
@@ -369,14 +390,7 @@ export function ArchivePage() {
             {data && data.items.length === 0 && (
               <p className="text-center text-sm text-muted-foreground py-8">No letters found</p>
             )}
-            {data?.items.map((letter) => (
-              <LetterCard
-                key={letter.id}
-                letter={letter}
-                selected={selectedLetterId === letter.id}
-                onSelect={handleSelect}
-              />
-            ))}
+            {data && renderLetterList(data.items, handleSelect, true)}
           </div>
 
           {totalPages > 1 && (
