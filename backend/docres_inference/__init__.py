@@ -55,6 +55,12 @@ class DocResProcessor:
         print(f"[DocRes] Using device: {self._device}")
         print(f"[DocRes] PyTorch threads: {torch.get_num_threads()}, interop threads: {torch.get_num_interop_threads()}")
 
+        # Enable flush-to-zero and denormals-are-zero mode.
+        # Denormalized floats in model weights cause 100-1000x slowdowns
+        # on CPUs that handle them in microcode (e.g. Intel N100).
+        torch.set_flush_denormal(True)
+        print(f"[DocRes] Flush denormals: {torch.get_flush_denormal()}")
+
         t0 = time.time()
         # Load Restormer model (used only for dewarping)
         self._model = Restormer(
