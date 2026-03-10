@@ -37,14 +37,11 @@ def _unload_processor():
 
 async def idle_unloader():
     """Periodically unloads model weights if idle for more than _IDLE_TIMEOUT seconds."""
-    check_interval = 3 * 60  # check every 3 minutes
-    logger.info("idle_unloader started.")
+    check_interval = 3*60  # check every 3 minutes
     try:
         while True:
             await asyncio.sleep(check_interval)
-            idle_secs = time.monotonic() - _last_used
-            logger.info("idle_unloader check: processor=%s, idle=%.0fs", _processor is not None, idle_secs)
-            if _processor is not None and idle_secs > _IDLE_TIMEOUT:
+            if _processor is not None and time.monotonic() - _last_used > _IDLE_TIMEOUT:
                 _unload_processor()
     except asyncio.CancelledError:
         raise

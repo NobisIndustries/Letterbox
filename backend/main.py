@@ -1,6 +1,9 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, force=True)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
