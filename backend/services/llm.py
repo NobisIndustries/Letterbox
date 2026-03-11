@@ -71,13 +71,16 @@ async def extract_metadata(
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": content},
                 ],
-                "max_tokens": 4096,
+                "max_tokens": 8192,
             },
         )
         resp.raise_for_status()
 
     raw_text = resp.json()["choices"][0]["message"]["content"]
+    return _parse_llm_response(raw_text)
 
+
+def _parse_llm_response(raw_text: str) -> dict:
     # Strip markdown code fences if present
     text = raw_text.strip()
     if text.startswith("```"):
@@ -98,6 +101,43 @@ async def extract_metadata(
 
     parsed["raw_llm_response"] = raw_text
     return parsed
+
+
+async def extract_metadata_from_pdf(
+    pdf_bytes: bytes,
+    recipients: list[str] | None = None,
+    tags: list[str] | None = None,
+) -> dict:
+    system_prompt = _build_system_prompt(recipients or [], tags or [])
+    b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    content: list[dict] = [
+        {"type": "text", "text": "Extract metadata from this letter:"},
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:application/pdf;base64,{b64}"},
+        },
+    ]
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(
+            settings.openrouter_url,
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.llm_model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": content},
+                ],
+                "max_tokens": 8192,
+            },
+        )
+        resp.raise_for_status()
+
+    raw_text = resp.json()["choices"][0]["message"]["content"]
+    return _parse_llm_response(raw_text)
 
 
 TRANSLATE_SYSTEM_PROMPT = """\

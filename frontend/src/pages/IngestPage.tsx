@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { uploadImages } from "@/api/client";
-import { Camera, Images, Mail } from "lucide-react";
+import { Camera, FileText, Images, Mail } from "lucide-react";
 
 interface IngestPageProps {
   onJobCreated: (jobId: string) => void;
@@ -12,11 +12,24 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
   const galleryRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [isPdfMode, setIsPdfMode] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const addFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
     const arr = Array.from(newFiles);
+
+    // Handle PDF upload
+    const pdfFile = arr.find((f) => f.type === "application/pdf");
+    if (pdfFile) {
+      setIsPdfMode(true);
+      setFiles([pdfFile]);
+      setPreviews([]);
+      return;
+    }
+
+    // Image upload (reset PDF mode)
+    setIsPdfMode(false);
     setFiles((prev) => [...prev, ...arr]);
     const newPreviews = arr.map((f) => URL.createObjectURL(f));
     setPreviews((prev) => [...prev, ...newPreviews]);
@@ -28,15 +41,20 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const clearAll = () => {
+    previews.forEach((url) => URL.revokeObjectURL(url));
+    setFiles([]);
+    setPreviews([]);
+    setIsPdfMode(false);
+  };
+
   const handleProcess = async () => {
     if (files.length === 0) return;
     setUploading(true);
     try {
       const res = await uploadImages(files);
       onJobCreated(res.job_id);
-      previews.forEach((url) => URL.revokeObjectURL(url));
-      setFiles([]);
-      setPreviews([]);
+      clearAll();
     } finally {
       setUploading(false);
     }
@@ -70,7 +88,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
       <input
         ref={galleryRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         multiple
         className="hidden"
         onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
@@ -97,8 +115,47 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
               Gallery
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Photograph each page of the letter</p>
+          <p className="text-xs text-muted-foreground">Photograph each page of the letter, or select a PDF</p>
         </div>
+      ) : isPdfMode ? (
+        <>
+          {/* PDF card */}
+          <div className="w-full max-w-md">
+            <div className="flex items-center gap-3 p-4 rounded-md border bg-muted/40">
+              <FileText size={32} className="text-primary shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-medium truncate">{files[0].name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {(files[0].size / 1024).toFixed(0)} KB
+                </span>
+              </div>
+              <button
+                onClick={clearAll}
+                className="ml-auto flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white text-xs shrink-0"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {/* Action row */}
+          <div className="mt-auto w-full max-w-md flex flex-col gap-2 pb-2">
+            <Button
+              className="w-full h-14 text-base"
+              onClick={handleProcess}
+              disabled={uploading}
+            >
+              {uploading ? "Uploading..." : "Process PDF"}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full h-12 gap-1.5"
+              onClick={() => galleryRef.current?.click()}
+            >
+              <Images size={16} /> Choose different file
+            </Button>
+          </div>
+        </>
       ) : (
         <>
           {/* Image grid */}

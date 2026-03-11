@@ -94,3 +94,63 @@ async def run_ingest(
 
     await session.flush()
     return letter
+
+
+async def run_ingest_pdf(
+    session: AsyncSession,
+    pdf_bytes: bytes,
+    on_progress=None,
+) -> Letter:
+    async def report(step: str):
+        if on_progress:
+            await on_progress(step)
+
+    await report("extracting")
+    recipients = await _load_setting(session, "recipients")
+    tags = await _load_setting(session, "tags")
+    metadata = await llm.extract_metadata_from_pdf(pdf_bytes, recipients=recipients, tags=tags)
+
+    await report("saving")
+    pdf_filename = f"{uuid.uuid4()}.pdf"
+    pdf_path = settings.pdf_dir / pdf_filename
+    pdf_path.write_bytes(pdf_bytes)
+
+    creation_date = None
+    if metadata.get("creation_date"):
+        try:
+            creation_date = date.fromisoformat(metadata["creation_date"])
+        except (ValueError, TypeError):
+            pass
+
+    letter = Letter(
+        title=metadata.get("title"),
+        summary=metadata.get("summary"),
+        sender=metadata.get("sender"),
+        receiver=metadata.get("receiver"),
+        creation_date=creation_date,
+        keywords=metadata.get("keywords"),
+        tags=metadata.get("tags"),
+        full_text=metadata.get("full_text"),
+        pdf_path=f"pdfs/{pdf_filename}",
+        page_count=1,
+        raw_llm_response=metadata.get("raw_llm_response"),
+    )
+    session.add(letter)
+    await session.flush()
+
+    for task_data in metadata.get("tasks", []):
+        deadline = None
+        if task_data.get("deadline"):
+            try:
+                deadline = date.fromisoformat(task_data["deadline"])
+            except (ValueError, TypeError):
+                pass
+        task = Task(
+            letter_id=letter.id,
+            description=task_data.get("description", ""),
+            deadline=deadline,
+        )
+        session.add(task)
+
+    await session.flush()
+    return letter

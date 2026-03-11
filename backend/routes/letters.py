@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from backend.config import settings
 from backend.dependencies import get_db
 from backend.models import Letter
-from backend.queue import enqueue, get_job
+from backend.queue import enqueue, enqueue_pdf, get_job
 from backend.schemas import (
     IngestResponse,
     LetterListOut,
@@ -28,8 +28,17 @@ router = APIRouter(prefix="/api/letters", tags=["letters"])
 async def ingest_upload(files: list[UploadFile]):
     if not files:
         raise HTTPException(400, "No files uploaded")
-    images = [await f.read() for f in files]
-    job_id = await enqueue(images)
+    content_types = [f.content_type for f in files]
+    pdf_count = sum(1 for ct in content_types if ct == "application/pdf")
+    if pdf_count > 0 and pdf_count < len(files):
+        raise HTTPException(400, "Cannot mix PDF and image uploads")
+    if pdf_count > 1:
+        raise HTTPException(400, "Only one PDF can be uploaded at a time")
+    raw_bytes = [await f.read() for f in files]
+    if pdf_count == 1:
+        job_id = await enqueue_pdf(raw_bytes[0])
+    else:
+        job_id = await enqueue(raw_bytes)
     return IngestResponse(job_id=job_id)
 
 
