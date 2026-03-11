@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import uuid
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 # SimHash duplicate detection
 # We compute a 64-bit SimHash over character trigrams of the full transcript.
 # Hamming distance ≤ SIMHASH_THRESHOLD bits indicates a probable duplicate.
-SIMHASH_THRESHOLD = 8
+SIMHASH_THRESHOLD = 5
 SIMHASH_BITS = 64
 
 
@@ -28,7 +29,7 @@ def _simhash(text_: str) -> int:
     ngrams = [text_[i : i + 3] for i in range(len(text_) - 2)] or [text_]
     v = [0] * SIMHASH_BITS
     for gram in ngrams:
-        h = hash(gram) & ((1 << SIMHASH_BITS) - 1)
+        h = int(hashlib.md5(gram.encode(), usedforsecurity=False).hexdigest(), 16) & ((1 << SIMHASH_BITS) - 1)
         for i in range(SIMHASH_BITS):
             if h & (1 << i):
                 v[i] += 1
@@ -69,21 +70,28 @@ async def find_duplicate(
 
     if creation_date is not None:
         result = await session.execute(
-            select(Letter.id, Letter.transcript_simhash).where(
+            select(Letter.id, Letter.title, Letter.transcript_simhash).where(
                 Letter.creation_date == creation_date,
                 Letter.transcript_simhash.is_not(None),
             )
         )
     else:
         result = await session.execute(
-            select(Letter.id, Letter.transcript_simhash).where(
+            select(Letter.id, Letter.title, Letter.transcript_simhash).where(
                 Letter.creation_date.is_(None),
                 Letter.transcript_simhash.is_not(None),
             )
         )
 
-    for letter_id, stored_hash in result:
-        if _hamming(new_hash, stored_hash) <= SIMHASH_THRESHOLD:
+    candidates = result.all()
+    logger.info(
+        "Duplicate check: date=%s, candidates=%d, threshold=%d",
+        creation_date, len(candidates), SIMHASH_THRESHOLD,
+    )
+    for letter_id, title, stored_hash in candidates:
+        dist = _hamming(new_hash, stored_hash)
+        logger.info("  id=%d title=%r distance=%d", letter_id, title, dist)
+        if dist <= SIMHASH_THRESHOLD:
             return letter_id
 
     return None
