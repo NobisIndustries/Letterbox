@@ -1,10 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { fetchSetting, updateSetting } from "@/api/client";
+import { fetchOpenRouterCredits, fetchSetting, updateSetting } from "@/api/client";
 import { cn } from "@/lib/utils";
 import { type DateFormat, getDateFormat, setDateFormat } from "@/lib/dateFormat";
 
@@ -73,6 +73,46 @@ function SettingList({ settingKey, label, description }: { settingKey: string; l
           </Button>
         </div>
       </CardContent>
+    </Card>
+  );
+}
+
+function OpenRouterCredits() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["openrouter-credits"],
+    queryFn: fetchOpenRouterCredits,
+    staleTime: 60_000,
+  });
+
+  let body: React.ReactNode;
+  if (isLoading) {
+    body = <p className="text-xs text-muted-foreground">Loading…</p>;
+  } else if (isError || !data) {
+    body = <p className="text-xs text-muted-foreground">Could not load credits.</p>;
+  } else if (data.is_free_tier) {
+    body = <p className="text-xs text-muted-foreground">Free tier — no credit limit.</p>;
+  } else {
+    const used = data.usage ?? 0;
+    const limit = data.limit;
+    const remaining = limit != null ? limit - used : null;
+    body = (
+      <div className="text-sm space-y-0.5">
+        {remaining != null && (
+          <p>Remaining: <span className="font-medium">${remaining.toFixed(4)}</span></p>
+        )}
+        <p className="text-xs text-muted-foreground">Used: ${used.toFixed(4)}{limit != null ? ` / $${limit.toFixed(2)}` : ""}</p>
+        {data.label && <p className="text-xs text-muted-foreground">Key: {data.label}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">OpenRouter Credits</CardTitle>
+        <p className="text-xs text-muted-foreground">Current usage for the configured API key.</p>
+      </CardHeader>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }
@@ -187,6 +227,7 @@ export function SettingsPage() {
         description="Languages available for on-demand letter translation. Click a language on any letter to generate a translation."
       />
       <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-2">Technical</h2>
+      <OpenRouterCredits />
       <DateFormatToggle />
       <DewarpingMethodToggle />
     </div>

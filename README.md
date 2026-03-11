@@ -1,6 +1,6 @@
 # ✉️ Letterbox
 
-A personal tool for digitizing physical letters. Photograph a letter, and Letterbox cleans it up, extracts text and metadata, detects todos with deadlines, and stores everything as a searchable PDF.
+A personal tool for digitizing physical letters. Photograph a letter, and Letterbox cleans it up, extracts text and metadata, detects todos with deadlines, stores everything as a searchable PDF, and lets you translate any letter on demand.
 
 Built for personal use on a home network. Not production software.
 
@@ -10,6 +10,7 @@ Built for personal use on a home network. Not production software.
 2. **Enhance** — Dewarp and clean up the images using [DocRes](https://github.com/ZZZHANG-jx/DocRes) (local ML inference)
 3. **Extract** — Send images to Gemini Flash (via OpenRouter) to pull out full text, sender, date, tags, and todos
 4. **Store** — Save as a compressed PDF, indexed in SQLite with full-text search
+5. **Translate** — Pick a language on any letter to get an on-demand LLM translation
 
 ## Limitations
 

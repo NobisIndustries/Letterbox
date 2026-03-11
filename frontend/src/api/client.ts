@@ -122,6 +122,15 @@ export async function updateSetting(
   });
 }
 
+export async function fetchOpenRouterCredits(): Promise<{
+  label: string | null;
+  limit: number | null;
+  usage: number;
+  is_free_tier: boolean;
+}> {
+  return request("/settings/openrouter-credits");
+}
+
 // Senders
 export async function fetchSenders(): Promise<string[]> {
   return request<string[]>("/senders");
