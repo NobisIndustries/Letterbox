@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { deleteTask, fetchSetting, fetchTasks, updateTask } from "@/api/client";
+import { formatDate } from "@/lib/dateFormat";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export function TasksPage() {
@@ -123,7 +124,7 @@ export function TasksPage() {
                 {task.letter_sender && <span>{task.letter_sender}</span>}
                 {task.deadline && (
                   <span className={isOverdue(task.deadline) && !task.is_done ? "text-destructive font-medium" : ""}>
-                    Due: {task.deadline}
+                    Due: {formatDate(task.deadline)}
                   </span>
                 )}
               </div>
