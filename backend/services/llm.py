@@ -9,14 +9,15 @@ from backend.config import settings
 
 logger = logging.getLogger(__name__)
 
+MAX_LLM_RETRIES = 2
+
 SYSTEM_PROMPT_BASE = """\
 You are a document analysis assistant. You receive scanned letter images and extract structured metadata.
 
-Respond with ONLY a valid JSON object (no markdown, no code fences) with these fields:
+Respond with ONLY a valid JSON object (no markdown, no code fences) with these fields, in this exact order:
 {
   "title": "short descriptive title",
   "summary": "1-3 sentence summary",
-  "full_text": "complete OCR transcription of the letter",
   "sender": "name/organization that sent the letter",
   "receiver": "name/organization the letter is addressed to",
   "creation_date": "YYYY-MM-DD or null if not found",
@@ -24,8 +25,11 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) with these f
   "tags": ["tag1", "tag2", ...],
   "tasks": [
     {"description": "action item from the letter", "deadline": "YYYY-MM-DD or null"}
-  ]
+  ],
+  "full_text": "complete OCR transcription of the letter"
 }
+
+IMPORTANT: Output all short metadata fields BEFORE full_text. The full_text field must be last.
 
 Rules:
 - Transcribe the full text faithfully, preserving the original language
@@ -62,28 +66,76 @@ async def extract_metadata(
             "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
         })
 
-    logger.info("Calling LLM (%s) for %d image(s)", settings.llm_model, len(images))
-    async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(
-            settings.openrouter_url,
-            headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.llm_model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": content},
-                ],
-                "max_tokens": 8192,
-            },
-        )
-        resp.raise_for_status()
-    logger.info("LLM response received (status %d)", resp.status_code)
+    payload = {
+        "model": settings.llm_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": content},
+        ],
+        "max_tokens": 8192,
+    }
 
-    raw_text = resp.json()["choices"][0]["message"]["content"]
-    return _parse_llm_response(raw_text)
+    return await _call_llm_with_retry(payload, f"{len(images)} image(s)")
+
+
+async def _call_llm_with_retry(payload: dict, description: str) -> dict:
+    """Call the LLM API with retries on truncated/invalid JSON responses."""
+    last_error = None
+    for attempt in range(1, MAX_LLM_RETRIES + 1):
+        logger.info("Calling LLM (%s) for %s (attempt %d/%d)",
+                     settings.llm_model, description, attempt, MAX_LLM_RETRIES)
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(
+                settings.openrouter_url,
+                headers={
+                    "Authorization": f"Bearer {settings.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            resp.raise_for_status()
+
+        data = resp.json()
+        finish_reason = data["choices"][0].get("finish_reason", "unknown")
+        raw_text = data["choices"][0]["message"]["content"]
+        logger.info("LLM response received (status %d, finish_reason=%s, length=%d chars)",
+                     resp.status_code, finish_reason, len(raw_text))
+
+        if finish_reason == "length":
+            logger.warning("LLM response was truncated (finish_reason=length)")
+
+        try:
+            return _parse_llm_response(raw_text)
+        except JSONDecodeError as e:
+            last_error = e
+            logger.warning("LLM returned invalid JSON (attempt %d/%d): %s",
+                           attempt, MAX_LLM_RETRIES, e)
+
+    logger.error("LLM failed to return valid JSON after %d attempts", MAX_LLM_RETRIES)
+    raise last_error
+
+
+def _try_repair_truncated_json(text: str) -> dict | None:
+    """Attempt to repair JSON truncated mid-string (typically in full_text).
+
+    Handles the common case where the response is cut off inside a string value
+    by closing the string and any open structures.
+    """
+    # Try progressively trimming from the end and closing the JSON
+    # The truncation is almost always inside full_text (a long string value)
+    for trim in range(0, min(200, len(text)), 1):
+        candidate = text if trim == 0 else text[:-trim]
+        # Try closing as: unterminated string -> close string, close object
+        for suffix in ['"}', '"}]', '"]}', '"]]}']:
+            try:
+                parsed = json.loads(candidate + suffix)
+                if isinstance(parsed, dict) and "title" in parsed:
+                    logger.warning("Repaired truncated JSON by appending %r (trimmed %d chars)",
+                                   suffix, trim)
+                    return parsed
+            except JSONDecodeError:
+                continue
+    return None
 
 
 def _parse_llm_response(raw_text: str) -> dict:
@@ -97,8 +149,14 @@ def _parse_llm_response(raw_text: str) -> dict:
     try:
         parsed = json.loads(text)
     except JSONDecodeError:
-        logger.error(f"Could not json decode this response: {raw_text}")
-        raise
+        # Attempt to repair truncated JSON before giving up
+        repaired = _try_repair_truncated_json(text)
+        if repaired is not None:
+            repaired["_truncated"] = True
+            parsed = repaired
+        else:
+            logger.error(f"Could not json decode this response: {raw_text}")
+            raise
 
     # Normalize keywords from list to comma-separated string
     if isinstance(parsed.get("keywords"), list):
@@ -127,28 +185,16 @@ async def extract_metadata_from_pdf(
         },
     ]
 
-    logger.info("Calling LLM (%s) for PDF", settings.llm_model)
-    async with httpx.AsyncClient(timeout=120) as client:
-        resp = await client.post(
-            settings.openrouter_url,
-            headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.llm_model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": content},
-                ],
-                "max_tokens": 8192,
-            },
-        )
-        resp.raise_for_status()
-    logger.info("LLM response received (status %d)", resp.status_code)
+    payload = {
+        "model": settings.llm_model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": content},
+        ],
+        "max_tokens": 8192,
+    }
 
-    raw_text = resp.json()["choices"][0]["message"]["content"]
-    return _parse_llm_response(raw_text)
+    return await _call_llm_with_retry(payload, "PDF")
 
 
 TRANSLATE_SYSTEM_PROMPT = """\

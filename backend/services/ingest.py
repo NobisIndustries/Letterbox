@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # SimHash duplicate detection
 # We compute a 64-bit SimHash over character trigrams of the full transcript.
 # Hamming distance ≤ SIMHASH_THRESHOLD bits indicates a probable duplicate.
-SIMHASH_THRESHOLD = 5
+SIMHASH_THRESHOLD = 8
 SIMHASH_BITS = 64
 
 
