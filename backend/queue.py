@@ -40,16 +40,17 @@ async def _finish_ingest(job_id: str, processed: list[bytes]) -> None:
                 _jobs[job_id]["letter_id"] = letter.id
 
         _jobs[job_id]["status"] = "done"
-    except Exception:
+    except Exception as e:
         logger.exception("Ingest job %s failed", job_id)
         _jobs[job_id]["status"] = "error"
-        _jobs[job_id]["error"] = "Processing failed"
+        _jobs[job_id]["error"] = f"{type(e).__name__}: {e}"
 
 
 async def enqueue_pdf(pdf_bytes: bytes) -> str:
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None}
-    asyncio.create_task(_finish_ingest_pdf(job_id, pdf_bytes))
+    task = asyncio.create_task(_finish_ingest_pdf(job_id, pdf_bytes))
+    task.add_done_callback(lambda t: logger.error("Unhandled error in PDF ingest task: %s", t.exception()) if not t.cancelled() and t.exception() else None)
     return job_id
 
 
@@ -64,10 +65,10 @@ async def _finish_ingest_pdf(job_id: str, pdf_bytes: bytes) -> None:
                 _jobs[job_id]["letter_id"] = letter.id
 
         _jobs[job_id]["status"] = "done"
-    except Exception:
+    except Exception as e:
         logger.exception("PDF ingest job %s failed", job_id)
         _jobs[job_id]["status"] = "error"
-        _jobs[job_id]["error"] = "Processing failed"
+        _jobs[job_id]["error"] = f"{type(e).__name__}: {e}"
 
 
 async def worker():
@@ -77,12 +78,13 @@ async def worker():
         try:
             _jobs[job_id]["status"] = "enhancing"
             processed = await enhance_images(images)
-        except Exception:
+        except Exception as e:
             logger.exception("Ingest job %s failed during enhancing", job_id)
             _jobs[job_id]["status"] = "error"
-            _jobs[job_id]["error"] = "Processing failed"
+            _jobs[job_id]["error"] = f"{type(e).__name__}: {e}"
             q.task_done()
             continue
 
         q.task_done()
-        asyncio.create_task(_finish_ingest(job_id, processed))
+        task = asyncio.create_task(_finish_ingest(job_id, processed))
+        task.add_done_callback(lambda t: logger.error("Unhandled error in ingest task: %s", t.exception()) if not t.cancelled() and t.exception() else None)

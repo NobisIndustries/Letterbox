@@ -51,7 +51,7 @@ export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
       ) : isDone ? (
         <span>Letter ready</span>
       ) : isError ? (
-        <span>Failed</span>
+        <span title={status.error ?? undefined}>Failed</span>
       ) : (
         <span>{STATUS_LABELS[status?.status ?? ""] ?? "Uploading..."}</span>
       )}

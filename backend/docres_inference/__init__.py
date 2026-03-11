@@ -8,9 +8,12 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import OrderedDict
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import cv2
 import numpy as np
@@ -52,7 +55,7 @@ class DocResProcessor:
         else:
             self._device = torch.device(device)
 
-        print(f"[DocRes] Using device: {self._device}")
+        logger.info("[DocRes] Using device: %s", self._device)
 
         # Flush denormalized floats to zero. Denormals in model weights
         # cause 100-1000x slowdowns on CPUs without fast denormal handling.
@@ -86,14 +89,14 @@ class DocResProcessor:
                 self._model, {torch.nn.Linear}, dtype=torch.qint8
             )
 
-        print(f"[DocRes] Restormer loaded in {time.time() - t0:.1f}s")
+        logger.info("[DocRes] Restormer loaded in %.1fs", time.time() - t0)
 
         # Load MBD segmentation model
         from ._mbd import _load_seg_model
 
         t0 = time.time()
         self._seg_model = _load_seg_model(mbd_weights, self._device)
-        print(f"[DocRes] MBD segmentation model loaded in {time.time() - t0:.1f}s")
+        logger.info("[DocRes] MBD segmentation model loaded in %.1fs", time.time() - t0)
 
     def process(
         self,
@@ -121,7 +124,7 @@ class DocResProcessor:
         n = len(images)
         for idx, (img_input, out_path) in enumerate(zip(images, output_paths), 1):
             label = img_input if isinstance(img_input, str) else f"image bytes ({len(img_input)} bytes)"
-            print(f"[DocRes] [{idx}/{n}] Processing: {label}")
+            logger.info("[DocRes] [%d/%d] Processing: %s", idx, n, label)
             t_total = time.time()
 
             img = self._load_image(img_input)
@@ -141,7 +144,7 @@ class DocResProcessor:
             cv2.imwrite(
                 str(out_path), img, [cv2.IMWRITE_JPEG_QUALITY, jpeg_quality]
             )
-            print(f"[DocRes] [{idx}/{n}] Done {w}x{h} in {time.time() - t_total:.1f}s")
+            logger.info("[DocRes] [%d/%d] Done %dx%d in %.1fs", idx, n, w, h, time.time() - t_total)
 
     def _load_image(self, img_input: str | bytes) -> np.ndarray:
         if isinstance(img_input, (str,)):
