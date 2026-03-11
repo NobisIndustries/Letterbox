@@ -57,9 +57,10 @@ async def ingest_status(job_id: str):
                     "status": job["status"],
                     "letter_id": job.get("letter_id"),
                     "error": job.get("error"),
+                    "duplicate_of": job.get("duplicate_of"),
                 }
                 yield f"data: {json.dumps(payload)}\n\n"
-                if job["status"] in ("done", "error"):
+                if job["status"] in ("done", "error", "skipped"):
                     return
             await asyncio.sleep(0.5)
 

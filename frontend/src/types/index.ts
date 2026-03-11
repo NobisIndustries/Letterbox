@@ -52,6 +52,7 @@ export interface IngestStatus {
   status: string;
   letter_id: number | null;
   error: string | null;
+  duplicate_of: number | null;
 }
 
 export interface Setting {

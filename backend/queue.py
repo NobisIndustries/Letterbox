@@ -24,7 +24,7 @@ def get_job(job_id: str) -> dict | None:
 
 async def enqueue(images: list[bytes]) -> str:
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None}
+    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None}
     await _get_queue().put((job_id, images))
     return job_id
 
@@ -36,7 +36,11 @@ async def _finish_ingest(job_id: str, processed: list[bytes]) -> None:
 
         async with database.async_session() as session:
             async with session.begin():
-                letter = await run_ingest(session, processed, on_progress=on_progress)
+                letter, duplicate_of = await run_ingest(session, processed, on_progress=on_progress)
+                if duplicate_of is not None:
+                    _jobs[job_id]["duplicate_of"] = duplicate_of
+                    _jobs[job_id]["status"] = "skipped"
+                    return
                 _jobs[job_id]["letter_id"] = letter.id
 
         _jobs[job_id]["status"] = "done"
@@ -48,7 +52,7 @@ async def _finish_ingest(job_id: str, processed: list[bytes]) -> None:
 
 async def enqueue_pdf(pdf_bytes: bytes) -> str:
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None}
+    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None}
     task = asyncio.create_task(_finish_ingest_pdf(job_id, pdf_bytes))
     task.add_done_callback(lambda t: logger.error("Unhandled error in PDF ingest task: %s", t.exception()) if not t.cancelled() and t.exception() else None)
     return job_id
@@ -61,7 +65,11 @@ async def _finish_ingest_pdf(job_id: str, pdf_bytes: bytes) -> None:
 
         async with database.async_session() as session:
             async with session.begin():
-                letter = await run_ingest_pdf(session, pdf_bytes, on_progress=on_progress)
+                letter, duplicate_of = await run_ingest_pdf(session, pdf_bytes, on_progress=on_progress)
+                if duplicate_of is not None:
+                    _jobs[job_id]["duplicate_of"] = duplicate_of
+                    _jobs[job_id]["status"] = "skipped"
+                    return
                 _jobs[job_id]["letter_id"] = letter.id
 
         _jobs[job_id]["status"] = "done"

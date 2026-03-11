@@ -26,6 +26,7 @@ class Letter(Base):
     pdf_path: Mapped[str | None] = mapped_column(Text)
     page_count: Mapped[int | None] = mapped_column(Integer)
     raw_llm_response: Mapped[str | None] = mapped_column(Text)
+    transcript_simhash: Mapped[int | None] = mapped_column(Integer)
 
     tasks: Mapped[list["Task"]] = relationship(
         back_populates="letter", cascade="all, delete-orphan"

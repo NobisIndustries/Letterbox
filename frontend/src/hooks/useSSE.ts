@@ -14,7 +14,7 @@ export function useSSE(jobId: string | null) {
     es.onmessage = (event) => {
       const data: IngestStatus = JSON.parse(event.data);
       setStatus(data);
-      if (data.status === "done" || data.status === "error") {
+      if (data.status === "done" || data.status === "error" || data.status === "skipped") {
         es.close();
       }
     };
