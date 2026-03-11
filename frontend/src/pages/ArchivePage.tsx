@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LetterCard } from "@/components/LetterCard";
 import { fetchLetters, fetchLetter, fetchSetting, fetchReceivers, updateTask } from "@/api/client";
+import { formatDate } from "@/lib/dateFormat";
 
 const PAGE_SIZE = 20;
 
@@ -224,7 +225,7 @@ function LetterMetaPanel({ letterId }: { letterId: number }) {
                 <span className={task.is_done ? "line-through opacity-50" : ""}>
                   {task.description}
                   {task.deadline && (
-                    <span className="ml-1 text-xs text-muted-foreground">(due {task.deadline})</span>
+                    <span className="ml-1 text-xs text-muted-foreground">(due {formatDate(task.deadline)})</span>
                   )}
                 </span>
               </div>

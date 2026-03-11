@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import type { LetterListItem } from "@/types";
+import { formatDate } from "@/lib/dateFormat";
 
 interface LetterCardProps {
   letter: LetterListItem;
@@ -40,11 +41,11 @@ export function LetterCard({ letter, selected, onSelect, sortOrder = "creation_d
         </div>
         {sortOrder === "ingested_at" ? (
           <span className="text-xs text-muted-foreground shrink-0">
-            {new Date(letter.ingested_at).toLocaleDateString()}
+            {formatDate(letter.ingested_at)}
           </span>
         ) : letter.creation_date ? (
           <span className="text-xs text-muted-foreground shrink-0">
-            {new Date(letter.creation_date + "T00:00:00").toLocaleDateString()}
+            {formatDate(letter.creation_date)}
           </span>
         ) : null}
       </div>

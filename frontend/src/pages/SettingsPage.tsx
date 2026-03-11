@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { fetchSetting, updateSetting } from "@/api/client";
 import { cn } from "@/lib/utils";
+import { type DateFormat, getDateFormat, setDateFormat } from "@/lib/dateFormat";
 
 function SettingList({ settingKey, label, description }: { settingKey: string; label: string; description?: string }) {
   const queryClient = useQueryClient();
@@ -126,6 +127,45 @@ function DewarpingMethodToggle() {
   );
 }
 
+function DateFormatToggle() {
+  const [current, setCurrent] = useState<DateFormat>(getDateFormat);
+
+  const options: { value: DateFormat; label: string; desc: string }[] = [
+    { value: "auto", label: "Auto", desc: "System locale (varies by device)" },
+    { value: "de", label: "European (DD.MM.YYYY)", desc: "e.g. 31.12.2024" },
+    { value: "iso", label: "ISO 8601 (YYYY-MM-DD)", desc: "e.g. 2024-12-31" },
+    { value: "us", label: "US (MM/DD/YYYY)", desc: "e.g. 12/31/2024" },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Date Format</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          How dates are displayed throughout the app. Stored locally on this device.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => { setDateFormat(opt.value); setCurrent(opt.value); }}
+            className={cn(
+              "w-full text-left rounded-md border p-3 transition-colors",
+              current === opt.value
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-muted-foreground/50"
+            )}
+          >
+            <div className="text-sm font-medium">{opt.label}</div>
+            <div className="text-xs text-muted-foreground">{opt.desc}</div>
+          </button>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   return (
     <div className="flex flex-col gap-3 p-4 max-w-lg mx-auto">
@@ -142,6 +182,7 @@ export function SettingsPage() {
         description="A vocabulary of labels the LLM can assign to letters (e.g. 'invoice', 'tax', 'insurance'). Add tags here to help the LLM categorise your mail."
       />
       <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-2">Technical</h2>
+      <DateFormatToggle />
       <DewarpingMethodToggle />
     </div>
   );

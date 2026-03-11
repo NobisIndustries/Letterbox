@@ -11,6 +11,7 @@ import {
   updateLetter,
   updateTask,
 } from "@/api/client";
+import { formatDate } from "@/lib/dateFormat";
 
 export function LetterDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -141,7 +142,7 @@ export function LetterDetailPage() {
             {letter.creation_date && (
               <>
                 <span className="text-muted-foreground">Date</span>
-                <span>{letter.creation_date}</span>
+                <span>{formatDate(letter.creation_date)}</span>
               </>
             )}
             {letter.keywords && (
@@ -217,7 +218,7 @@ export function LetterDetailPage() {
                       {task.description}
                       {task.deadline && (
                         <span className="ml-1 text-muted-foreground">
-                          (due {task.deadline})
+                          (due {formatDate(task.deadline)})
                         </span>
                       )}
                     </span>
