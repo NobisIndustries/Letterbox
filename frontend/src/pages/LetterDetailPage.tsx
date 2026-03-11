@@ -262,7 +262,7 @@ export function LetterDetailPage() {
                     onClick={() => setSelectedLanguage(null)}
                     className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                       selectedLanguage === null
-                        ? "bg-green-700 text-white border-green-700"
+                        ? "bg-green-800 text-white border-green-800"
                         : "border-border hover:border-muted-foreground/50"
                     }`}
                   >
@@ -274,7 +274,7 @@ export function LetterDetailPage() {
                       onClick={() => setSelectedLanguage(lang)}
                       className={`text-xs px-3 py-1 rounded-full border transition-colors ${
                         selectedLanguage === lang
-                          ? "bg-green-700 text-white border-green-700"
+                          ? "bg-green-800 text-white border-green-800"
                           : "border-border hover:border-muted-foreground/50"
                       }`}
                     >
