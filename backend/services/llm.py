@@ -39,7 +39,7 @@ def _build_system_prompt(recipients: list[str], tags: list[str]) -> str:
         prompt += f"\n- For receiver, prefer matching one of these known recipients: {names}"
     if tags:
         tag_list = ", ".join(tags)
-        prompt += f"\n- For tags, classify using these known tags where applicable: {tag_list}. You may also add new tags if none fit."
+        prompt += f"\n- For tags, classify using these known tags where applicable: {tag_list}"
     return prompt
 
 
