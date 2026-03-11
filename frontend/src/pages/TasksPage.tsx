@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { deleteTask, fetchSetting, fetchTasks, updateTask } from "@/api/client";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export function TasksPage() {
   const [filter, setFilter] = useState<"pending" | "done" | "all">("pending");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [recipient, setRecipient] = useState<string>("");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -130,7 +132,7 @@ export function TasksPage() {
             {/* Delete */}
             <button
               className="flex items-center justify-center w-10 shrink-0 text-muted-foreground hover:text-destructive hover:bg-muted/40 transition-colors text-lg"
-              onClick={() => { if (confirm("Delete this task?")) remove.mutate(task.id); }}
+              onClick={() => setConfirmDeleteId(task.id)}
               aria-label="Delete task"
             >
               ×
@@ -138,6 +140,13 @@ export function TasksPage() {
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}
+        title="Delete this task?"
+        onConfirm={() => { if (confirmDeleteId !== null) remove.mutate(confirmDeleteId); }}
+      />
     </div>
   );
 }

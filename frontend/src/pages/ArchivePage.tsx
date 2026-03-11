@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LetterCard } from "@/components/LetterCard";
-import { fetchLetters, fetchLetter, fetchSetting, fetchReceivers, updateTask } from "@/api/client";
+import { fetchLetters, fetchLetter, fetchSetting, fetchReceivers, updateTask, deleteLetter } from "@/api/client";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatDate } from "@/lib/dateFormat";
 
 const PAGE_SIZE = 20;
@@ -143,7 +144,7 @@ function FilterPanel({
   );
 }
 
-function LetterMetaPanel({ letterId }: { letterId: number }) {
+function LetterMetaPanel({ letterId, onDelete }: { letterId: number; onDelete: () => void }) {
   const queryClient = useQueryClient();
   const { data: letter, isLoading } = useQuery({
     queryKey: ["letter", String(letterId)],
@@ -167,7 +168,12 @@ function LetterMetaPanel({ letterId }: { letterId: number }) {
 
   return (
     <div className="flex flex-col gap-4 p-4 overflow-y-auto h-full">
-      <h2 className="text-base font-semibold leading-tight">{letter.title || "Untitled"}</h2>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-base font-semibold leading-tight">{letter.title || "Untitled"}</h2>
+        <Button variant="destructive" size="sm" className="shrink-0" onClick={onDelete}>
+          Delete
+        </Button>
+      </div>
 
       <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         {letter.sender && (
@@ -272,6 +278,7 @@ function PdfPanel({ letterId }: { letterId: number }) {
 
 export function ArchivePage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -280,6 +287,19 @@ export function ArchivePage() {
   const [page, setPage] = useState(0);
   const [order, setOrder] = useState<"creation_date" | "ingested_at">("creation_date");
   const [selectedLetterId, setSelectedLetterId] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteLetter(id),
+    onSuccess: (_, id) => {
+      queryClient.setQueriesData<{ items: LetterListItem[]; total: number }>(
+        { queryKey: ["letters"] },
+        (old) => old ? { items: old.items.filter((l) => l.id !== id), total: old.total - 1 } : old
+      );
+      queryClient.invalidateQueries({ queryKey: ["letters"] });
+      setSelectedLetterId(null);
+    },
+  });
 
   const resetPage = () => setPage(0);
 
@@ -440,7 +460,7 @@ export function ArchivePage() {
         {/* Middle pane: letter metadata */}
         <div className="w-[28rem] shrink-0 border-r overflow-hidden bg-background">
           {selectedLetterId ? (
-            <LetterMetaPanel letterId={selectedLetterId} />
+            <LetterMetaPanel letterId={selectedLetterId} onDelete={() => setConfirmDelete(true)} />
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
               Select a letter
@@ -459,6 +479,13 @@ export function ArchivePage() {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this letter?"
+        description="This will permanently remove the letter and its PDF."
+        onConfirm={() => deleteMutation.mutate(selectedLetterId!)}
+      />
     </>
   );
 }

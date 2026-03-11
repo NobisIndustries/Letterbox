@@ -12,12 +12,14 @@ import {
   updateTask,
 } from "@/api/client";
 import { formatDate } from "@/lib/dateFormat";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export function LetterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: letter, isLoading } = useQuery({
     queryKey: ["letter", id],
@@ -87,12 +89,17 @@ export function LetterDetailPage() {
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => {
-              if (confirm("Delete this letter?")) deleteMutation.mutate();
-            }}
+            onClick={() => setConfirmDelete(true)}
           >
             Delete
           </Button>
+          <ConfirmDialog
+            open={confirmDelete}
+            onOpenChange={setConfirmDelete}
+            title="Delete this letter?"
+            description="This will permanently remove the letter and its PDF."
+            onConfirm={() => deleteMutation.mutate()}
+          />
         </div>
       </div>
 
@@ -182,7 +189,7 @@ export function LetterDetailPage() {
               rel="noreferrer"
               className="md:hidden"
             >
-              <Button variant="outline" size="sm" className="w-full">
+              <Button variant="outline" size="sm" className="w-full bg-green-800 text-white border-green-800 hover:bg-green-900 hover:border-green-900 hover:text-white">
                 View / Download PDF
               </Button>
             </a>
