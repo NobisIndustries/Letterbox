@@ -3,8 +3,6 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-logging.basicConfig(level=logging.INFO, force=True)
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -19,6 +17,8 @@ from backend.services.processing import idle_unloader
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     run_migrations()
+    # Configure AFTER alembic — its fileConfig() wipes root handlers and sets level=WARNING
+    logging.basicConfig(level=logging.INFO, force=True)
     worker_task = asyncio.create_task(worker())
     unloader_task = asyncio.create_task(idle_unloader())
     yield

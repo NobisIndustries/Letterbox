@@ -26,6 +26,7 @@ async def enqueue(images: list[bytes]) -> str:
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None}
     await _get_queue().put((job_id, images))
+    logger.info("Enqueued image ingest job %s (%d image(s))", job_id, len(images))
     return job_id
 
 
@@ -53,6 +54,7 @@ async def _finish_ingest(job_id: str, processed: list[bytes]) -> None:
 async def enqueue_pdf(pdf_bytes: bytes) -> str:
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None}
+    logger.info("Enqueued PDF ingest job %s (%d bytes)", job_id, len(pdf_bytes))
     task = asyncio.create_task(_finish_ingest_pdf(job_id, pdf_bytes))
     task.add_done_callback(lambda t: logger.error("Unhandled error in PDF ingest task: %s", t.exception()) if not t.cancelled() and t.exception() else None)
     return job_id
@@ -83,6 +85,7 @@ async def worker():
     q = _get_queue()
     while True:
         job_id, images = await q.get()
+        logger.info("Worker picked up job %s", job_id)
         try:
             _jobs[job_id]["status"] = "enhancing"
             processed = await enhance_images(images)

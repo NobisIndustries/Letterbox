@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from datetime import date
 
@@ -9,6 +10,8 @@ from backend.config import settings
 from backend.models import Letter, Setting, Task
 from backend.services import llm, processing
 from backend.services.pdf import create_pdf
+
+logger = logging.getLogger(__name__)
 
 # SimHash duplicate detection
 # We compute a 64-bit SimHash over character trigrams of the full transcript.
@@ -35,11 +38,14 @@ def _simhash(text_: str) -> int:
     for i in range(SIMHASH_BITS):
         if v[i] > 0:
             result |= 1 << i
+    # Convert to signed 64-bit int for SQLite INTEGER storage
+    if result >= (1 << 63):
+        result -= 1 << 64
     return result
 
 
 def _hamming(a: int, b: int) -> int:
-    return bin(a ^ b).count("1")
+    return bin((a ^ b) & ((1 << SIMHASH_BITS) - 1)).count("1")
 
 
 async def find_duplicate(
@@ -105,7 +111,10 @@ async def enhance_images(images: list[bytes]) -> list[bytes]:
     from backend import database
     async with database.async_session() as session:
         method = await load_dewarping_method(session)
-    return await processing.process_images(images, dewarping_method=method)
+    logger.info("Enhancing %d image(s) with method=%s", len(images), method)
+    result = await processing.process_images(images, dewarping_method=method)
+    logger.info("Image enhancement complete")
+    return result
 
 
 async def run_ingest(
@@ -123,9 +132,11 @@ async def run_ingest(
             await on_progress(step)
 
     await report("extracting")
+    logger.info("Starting metadata extraction for %d image(s)", len(processed))
     recipients = await _load_setting(session, "recipients")
     tags = await _load_setting(session, "tags")
     metadata = await llm.extract_metadata(processed, recipients=recipients, tags=tags)
+    logger.info("Metadata extracted: title=%s, sender=%s", metadata.get("title"), metadata.get("sender"))
 
     creation_date = None
     if metadata.get("creation_date"):
@@ -136,12 +147,14 @@ async def run_ingest(
 
     duplicate_of = await find_duplicate(session, metadata.get("full_text"), creation_date)
     if duplicate_of is not None:
+        logger.info("Duplicate detected (letter_id=%d), skipping", duplicate_of)
         return None, duplicate_of
 
     await report("saving")
     pdf_filename = f"{uuid.uuid4()}.pdf"
     pdf_path = str(settings.pdf_dir / pdf_filename)
     create_pdf(processed, pdf_path)
+    logger.info("PDF saved: %s", pdf_filename)
 
     full_text = metadata.get("full_text")
     letter = Letter(
@@ -176,6 +189,7 @@ async def run_ingest(
         session.add(task)
 
     await session.flush()
+    logger.info("Letter saved: id=%d, pages=%d", letter.id, letter.page_count)
     return letter, None
 
 
@@ -194,9 +208,11 @@ async def run_ingest_pdf(
             await on_progress(step)
 
     await report("extracting")
+    logger.info("Starting metadata extraction for PDF (%d bytes)", len(pdf_bytes))
     recipients = await _load_setting(session, "recipients")
     tags = await _load_setting(session, "tags")
     metadata = await llm.extract_metadata_from_pdf(pdf_bytes, recipients=recipients, tags=tags)
+    logger.info("Metadata extracted: title=%s, sender=%s", metadata.get("title"), metadata.get("sender"))
 
     creation_date = None
     if metadata.get("creation_date"):
@@ -207,12 +223,14 @@ async def run_ingest_pdf(
 
     duplicate_of = await find_duplicate(session, metadata.get("full_text"), creation_date)
     if duplicate_of is not None:
+        logger.info("Duplicate detected (letter_id=%d), skipping", duplicate_of)
         return None, duplicate_of
 
     await report("saving")
     pdf_filename = f"{uuid.uuid4()}.pdf"
     pdf_path = settings.pdf_dir / pdf_filename
     pdf_path.write_bytes(pdf_bytes)
+    logger.info("PDF saved: %s", pdf_filename)
 
     full_text = metadata.get("full_text")
     letter = Letter(
@@ -247,4 +265,5 @@ async def run_ingest_pdf(
         session.add(task)
 
     await session.flush()
+    logger.info("Letter saved: id=%d", letter.id)
     return letter, None

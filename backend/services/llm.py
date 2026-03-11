@@ -1,9 +1,13 @@
 import base64
 import json
+import logging
+from json import JSONDecodeError
 
 import httpx
 
 from backend.config import settings
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_BASE = """\
 You are a document analysis assistant. You receive scanned letter images and extract structured metadata.
@@ -58,6 +62,7 @@ async def extract_metadata(
             "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
         })
 
+    logger.info("Calling LLM (%s) for %d image(s)", settings.llm_model, len(images))
     async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(
             settings.openrouter_url,
@@ -75,6 +80,7 @@ async def extract_metadata(
             },
         )
         resp.raise_for_status()
+    logger.info("LLM response received (status %d)", resp.status_code)
 
     raw_text = resp.json()["choices"][0]["message"]["content"]
     return _parse_llm_response(raw_text)
@@ -88,8 +94,11 @@ def _parse_llm_response(raw_text: str) -> dict:
         if text.endswith("```"):
             text = text[:-3]
         text = text.strip()
-
-    parsed = json.loads(text)
+    try:
+        parsed = json.loads(text)
+    except JSONDecodeError:
+        logger.error(f"Could not json decode this response: {raw_text}")
+        raise
 
     # Normalize keywords from list to comma-separated string
     if isinstance(parsed.get("keywords"), list):
@@ -118,6 +127,7 @@ async def extract_metadata_from_pdf(
         },
     ]
 
+    logger.info("Calling LLM (%s) for PDF", settings.llm_model)
     async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(
             settings.openrouter_url,
@@ -135,6 +145,7 @@ async def extract_metadata_from_pdf(
             },
         )
         resp.raise_for_status()
+    logger.info("LLM response received (status %d)", resp.status_code)
 
     raw_text = resp.json()["choices"][0]["message"]["content"]
     return _parse_llm_response(raw_text)
