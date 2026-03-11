@@ -4,6 +4,7 @@ import type {
   LetterListResponse,
   Setting,
   Task,
+  Translation,
 } from "@/types";
 
 const BASE = "/api";
@@ -124,4 +125,22 @@ export async function updateSetting(
 // Senders
 export async function fetchSenders(): Promise<string[]> {
   return request<string[]>("/senders");
+}
+
+// Translations
+export async function fetchTranslation(
+  letterId: number,
+  language: string
+): Promise<Translation> {
+  return request<Translation>(`/letters/${letterId}/translations/${encodeURIComponent(language)}`);
+}
+
+export async function createTranslation(
+  letterId: number,
+  language: string
+): Promise<Translation> {
+  return request<Translation>(
+    `/letters/${letterId}/translations/${encodeURIComponent(language)}`,
+    { method: "POST" }
+  );
 }

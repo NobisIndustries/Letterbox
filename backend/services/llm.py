@@ -98,3 +98,47 @@ async def extract_metadata(
 
     parsed["raw_llm_response"] = raw_text
     return parsed
+
+
+TRANSLATE_SYSTEM_PROMPT = """\
+You are a translation assistant. You receive the full text of a letter and translate it into the requested language.
+
+Respond with ONLY a valid JSON object (no markdown, no code fences) with these fields:
+{
+  "translated_text": "complete translation of the letter text",
+  "translated_summary": "1-3 sentence summary in the target language"
+}"""
+
+
+async def translate_letter(full_text: str, target_language: str) -> dict:
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(
+            settings.openrouter_url,
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.llm_model,
+                "messages": [
+                    {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": f"Translate the following letter text into {target_language}:\n\n{full_text}",
+                    },
+                ],
+                "max_tokens": 4096,
+            },
+        )
+        resp.raise_for_status()
+
+    raw_text = resp.json()["choices"][0]["message"]["content"]
+
+    text = raw_text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+    return json.loads(text)

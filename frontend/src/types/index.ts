@@ -58,3 +58,12 @@ export interface Setting {
   key: string;
   value: string[];
 }
+
+export interface Translation {
+  id: number;
+  letter_id: number;
+  language: string;
+  translated_text: string | null;
+  translated_summary: string | null;
+  created_at: string;
+}

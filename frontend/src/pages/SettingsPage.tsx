@@ -181,6 +181,11 @@ export function SettingsPage() {
         label="Tags"
         description="A vocabulary of labels the LLM can assign to letters (e.g. 'invoice', 'tax', 'insurance'). Add tags here to help the LLM categorise your mail."
       />
+      <SettingList
+        settingKey="translation_languages"
+        label="Translation Languages"
+        description="Languages available for on-demand letter translation. Click a language on any letter to generate a translation."
+      />
       <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-2">Technical</h2>
       <DateFormatToggle />
       <DewarpingMethodToggle />

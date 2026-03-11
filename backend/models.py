@@ -30,6 +30,9 @@ class Letter(Base):
     tasks: Mapped[list["Task"]] = relationship(
         back_populates="letter", cascade="all, delete-orphan"
     )
+    translations: Mapped[list["LetterTranslation"]] = relationship(
+        back_populates="letter", cascade="all, delete-orphan"
+    )
 
 
 class Task(Base):
@@ -47,6 +50,19 @@ class Task(Base):
     )
 
     letter: Mapped["Letter"] = relationship(back_populates="tasks")
+
+
+class LetterTranslation(Base):
+    __tablename__ = "letter_translations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    letter_id: Mapped[int] = mapped_column(Integer, ForeignKey("letters.id"), nullable=False)
+    language: Mapped[str] = mapped_column(Text, nullable=False)
+    translated_text: Mapped[str | None] = mapped_column(Text)
+    translated_summary: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    letter: Mapped["Letter"] = relationship(back_populates="translations")
 
 
 class Setting(Base):

@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  createTranslation,
   deleteLetter,
   fetchLetter,
+  fetchSetting,
   updateLetter,
   updateTask,
 } from "@/api/client";
@@ -20,6 +22,7 @@ export function LetterDetailPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
 
   const { data: letter, isLoading } = useQuery({
     queryKey: ["letter", id],
@@ -43,6 +46,20 @@ export function LetterDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["letters"] });
       navigate("/archive");
     },
+  });
+
+  const { data: languagesSetting } = useQuery({
+    queryKey: ["settings", "translation_languages"],
+    queryFn: () => fetchSetting("translation_languages"),
+  });
+  const languages = languagesSetting?.value ?? [];
+
+  const { data: translation, isLoading: translationLoading } = useQuery({
+    queryKey: ["translation", id, selectedLanguage],
+    queryFn: () => createTranslation(Number(id), selectedLanguage!),
+    enabled: !!selectedLanguage,
+    retry: false,
+    staleTime: Infinity,
   });
 
   const toggleTask = useMutation({
@@ -238,11 +255,65 @@ export function LetterDetailPage() {
           {letter.full_text && (
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Transcript</p>
-              <Textarea
-                readOnly
-                value={letter.full_text}
-                className="min-h-[200px] text-xs bg-muted/40 border-0 focus-visible:ring-1"
-              />
+
+              {languages.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  <button
+                    onClick={() => setSelectedLanguage(null)}
+                    className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                      selectedLanguage === null
+                        ? "bg-green-700 text-white border-green-700"
+                        : "border-border hover:border-muted-foreground/50"
+                    }`}
+                  >
+                    Original
+                  </button>
+                  {languages.map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setSelectedLanguage(lang)}
+                      className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                        selectedLanguage === lang
+                          ? "bg-green-700 text-white border-green-700"
+                          : "border-border hover:border-muted-foreground/50"
+                      }`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedLanguage === null ? (
+                <Textarea
+                  readOnly
+                  value={letter.full_text}
+                  className="min-h-[200px] text-xs bg-muted/40 border-0 focus-visible:ring-1"
+                />
+              ) : translationLoading ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16">
+                  <svg className="h-10 w-10 animate-spin text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <p className="text-sm text-muted-foreground">Translating to {selectedLanguage}…</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {translation?.translated_summary && (
+                    <div className="rounded-lg bg-muted/60 p-3 text-sm">
+                      {translation.translated_summary}
+                    </div>
+                  )}
+                  {translation?.translated_text && (
+                    <Textarea
+                      readOnly
+                      value={translation.translated_text}
+                      className="min-h-[200px] text-xs bg-muted/40 border-0 focus-visible:ring-1"
+                    />
+                  )}
+                </div>
+              )}
             </div>
           )}
         </>

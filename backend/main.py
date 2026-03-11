@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.database import run_migrations
 from backend.queue import worker
-from backend.routes import letters, senders, settings, tasks
+from backend.routes import letters, senders, settings, tasks, translations
 from backend.services.processing import idle_unloader
 
 
@@ -44,6 +44,7 @@ app.include_router(letters.router)
 app.include_router(tasks.router)
 app.include_router(settings.router)
 app.include_router(senders.router)
+app.include_router(translations.router)
 
 # Serve frontend static files if built
 frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"

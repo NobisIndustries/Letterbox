@@ -82,3 +82,14 @@ class SettingOut(BaseModel):
 
 class SettingUpdate(BaseModel):
     value: list[str]
+
+
+class TranslationOut(BaseModel):
+    id: int
+    letter_id: int
+    language: str
+    translated_text: str | None
+    translated_summary: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
