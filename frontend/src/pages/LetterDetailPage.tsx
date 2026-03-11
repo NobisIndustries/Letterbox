@@ -21,10 +21,32 @@ function CopyButton({ text }: { text: string }) {
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    if (timeout.current) clearTimeout(timeout.current);
-    timeout.current = setTimeout(() => setCopied(false), 2000);
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        if (timeout.current) clearTimeout(timeout.current);
+        timeout.current = setTimeout(() => setCopied(false), 2000);
+      }).catch(() => fallbackCopy());
+    } else {
+      fallbackCopy();
+    }
+  };
+
+  const fallbackCopy = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try {
+      document.execCommand("copy");
+      setCopied(true);
+      if (timeout.current) clearTimeout(timeout.current);
+      timeout.current = setTimeout(() => setCopied(false), 2000);
+    } finally {
+      document.body.removeChild(ta);
+    }
   };
 
   return (
