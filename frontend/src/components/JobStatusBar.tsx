@@ -11,7 +11,7 @@ export function JobStatusBar({ jobIds, onDismiss }: JobStatusBarProps) {
   if (jobIds.length === 0) return null;
 
   const hidden = jobIds.length - MAX_VISIBLE;
-  const visible = jobIds.slice(-MAX_VISIBLE);
+  const visibleIds = new Set(jobIds.slice(-MAX_VISIBLE));
 
   return (
     <div className="fixed top-3 right-3 z-40 flex flex-col items-end gap-1.5 pointer-events-none">
@@ -20,8 +20,8 @@ export function JobStatusBar({ jobIds, onDismiss }: JobStatusBarProps) {
           +{hidden} more running
         </div>
       )}
-      {visible.map((id) => (
-        <div key={id} className="pointer-events-auto">
+      {jobIds.map((id) => (
+        <div key={id} className="pointer-events-auto" style={visibleIds.has(id) ? undefined : { display: "none" }}>
           <JobStatusChip jobId={id} onDismiss={() => onDismiss(id)} />
         </div>
       ))}
