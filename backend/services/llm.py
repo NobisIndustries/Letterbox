@@ -36,7 +36,7 @@ def _build_system_prompt(recipients: list[str], tags: list[str]) -> str:
     prompt = SYSTEM_PROMPT_BASE
     if recipients:
         names = ", ".join(recipients)
-        prompt += f"\n- For receiver, prefer matching one of these known recipients: {names}"
+        prompt += f"\n- For receiver, prefer matching one of these known recipients: {names}. If none match, still extract the actual recipient from the letter"
     if tags:
         tag_list = ", ".join(tags)
         prompt += f"\n- For tags, classify using these known tags where applicable: {tag_list}"
