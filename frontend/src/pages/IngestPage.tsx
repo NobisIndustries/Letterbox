@@ -14,8 +14,9 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isPdfMode, setIsPdfMode] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [firstCapture, setFirstCapture] = useState<"camera" | "gallery" | null>(null);
 
-  const addFiles = (newFiles: FileList | null) => {
+  const addFiles = (newFiles: FileList | null, source?: "camera" | "gallery") => {
     if (!newFiles) return;
     const arr = Array.from(newFiles);
 
@@ -25,6 +26,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
       setIsPdfMode(true);
       setFiles([pdfFile]);
       setPreviews([]);
+      if (!firstCapture && source) setFirstCapture(source);
       return;
     }
 
@@ -33,6 +35,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
     setFiles((prev) => [...prev, ...arr]);
     const newPreviews = arr.map((f) => URL.createObjectURL(f));
     setPreviews((prev) => [...prev, ...newPreviews]);
+    if (!firstCapture && source) setFirstCapture(source);
   };
 
   const removeFile = (index: number) => {
@@ -46,6 +49,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
     setFiles([]);
     setPreviews([]);
     setIsPdfMode(false);
+    setFirstCapture(null);
   };
 
   const handleProcess = async () => {
@@ -83,7 +87,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
         capture="environment"
         multiple
         className="hidden"
-        onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+        onChange={(e) => { addFiles(e.target.files, "camera"); e.target.value = ""; }}
       />
       <input
         ref={galleryRef}
@@ -91,7 +95,7 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
         accept="image/*,application/pdf"
         multiple
         className="hidden"
-        onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+        onChange={(e) => { addFiles(e.target.files, "gallery"); e.target.value = ""; }}
       />
 
       {/* Capture buttons */}
@@ -177,28 +181,29 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
             ))}
           </div>
 
-          {/* Action row — pinned to bottom for thumb reach */}
-          <div className="mt-auto w-full max-w-md flex flex-col gap-2 pb-2">
+          {/* Action row — two-column: process left, add-more right */}
+          <div className="mt-auto w-full max-w-md flex gap-3 pb-2">
             <Button
-              className="w-full h-14 text-base"
+              variant="outline"
+              className="flex-1 h-28 flex flex-col gap-1 text-sm bg-muted"
               onClick={handleProcess}
               disabled={uploading}
             >
-              {uploading
-                ? "Uploading..."
-                : `Process ${files.length} page${files.length > 1 ? "s" : ""}`}
+              <FileText size={22} />
+              {uploading ? "Uploading..." : "Process"}
+              {!uploading && <span className="text-xs opacity-70">{files.length} page{files.length > 1 ? "s" : ""}</span>}
             </Button>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 flex-1">
               <Button
-                variant="outline"
-                className="flex-1 h-12 gap-1.5"
+                variant={firstCapture === "camera" ? "default" : "outline"}
+                className="flex-1 h-[52px] gap-1.5"
                 onClick={() => cameraRef.current?.click()}
               >
                 <Camera size={16} /> Camera
               </Button>
               <Button
-                variant="outline"
-                className="flex-1 h-12 gap-1.5"
+                variant={firstCapture === "gallery" ? "default" : "outline"}
+                className="flex-1 h-[52px] gap-1.5"
                 onClick={() => galleryRef.current?.click()}
               >
                 <Images size={16} /> Gallery
