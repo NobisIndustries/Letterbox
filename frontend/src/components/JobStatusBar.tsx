@@ -5,9 +5,10 @@ const MAX_VISIBLE = 3;
 interface JobStatusBarProps {
   jobIds: string[];
   onDismiss: (id: string) => void;
+  onForceJob: (newJobId: string) => void;
 }
 
-export function JobStatusBar({ jobIds, onDismiss }: JobStatusBarProps) {
+export function JobStatusBar({ jobIds, onDismiss, onForceJob }: JobStatusBarProps) {
   if (jobIds.length === 0) return null;
 
   const hidden = jobIds.length - MAX_VISIBLE;
@@ -22,7 +23,7 @@ export function JobStatusBar({ jobIds, onDismiss }: JobStatusBarProps) {
       )}
       {jobIds.map((id) => (
         <div key={id} className="pointer-events-auto" style={visibleIds.has(id) ? undefined : { display: "none" }}>
-          <JobStatusChip jobId={id} onDismiss={() => onDismiss(id)} />
+          <JobStatusChip jobId={id} onDismiss={() => onDismiss(id)} onForceJob={onForceJob} />
         </div>
       ))}
     </div>

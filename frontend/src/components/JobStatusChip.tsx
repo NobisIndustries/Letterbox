@@ -1,22 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSSE } from "@/hooks/useSSE";
+import { forceIngest } from "@/api/client";
 
 const STATUS_LABELS: Record<string, string> = {
   queued: "Queued",
   processing: "Processing",
   enhancing: "Enhancing",
   extracting: "Extracting",
-  saving: "Saving",
+  saving: "Saving...",
 };
 
 interface JobStatusChipProps {
   jobId: string;
   onDismiss: () => void;
+  onForceJob: (newJobId: string) => void;
 }
 
-export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
+export function JobStatusChip({ jobId, onDismiss, onForceJob }: JobStatusChipProps) {
   const status = useSSE(jobId);
+  const [forceError, setForceError] = useState<string | null>(null);
+  const [forcing, setForcing] = useState(false);
 
   const isDone = status?.status === "done";
   const isError = status?.status === "error";
@@ -27,6 +31,25 @@ export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
     const timer = setTimeout(onDismiss, 10000);
     return () => clearTimeout(timer);
   }, [isDone, onDismiss]);
+
+  async function handleForce() {
+    setForcing(true);
+    setForceError(null);
+    try {
+      const { job_id } = await forceIngest(jobId);
+      onForceJob(job_id);
+      onDismiss();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.startsWith("410")) {
+        setForceError("expired");
+      } else {
+        setForceError("error");
+      }
+    } finally {
+      setForcing(false);
+    }
+  }
 
   return (
     <div
@@ -53,15 +76,37 @@ export function JobStatusChip({ jobId, onDismiss }: JobStatusChipProps) {
         </Link>
       ) : isDone ? (
         <span>Letter ready</span>
+      ) : isSkipped && forceError === "expired" ? (
+        <span>Expired — re-upload</span>
+      ) : isSkipped && forceError === "error" ? (
+        <span>Force failed</span>
       ) : isSkipped && status.duplicate_of ? (
-        <Link
-          to={`/letters/${status.duplicate_of}`}
-          className="underline underline-offset-2 hover:no-underline"
-        >
-          Skipped — duplicate of #{status.duplicate_of}
-        </Link>
+        <>
+          <Link
+            to={`/letters/${status.duplicate_of}`}
+            className="underline underline-offset-2 hover:no-underline"
+          >
+            Skipped — duplicate of #{status.duplicate_of}
+          </Link>
+          <button
+            onClick={handleForce}
+            disabled={forcing}
+            className="ml-1 underline underline-offset-2 hover:no-underline disabled:opacity-50"
+          >
+            {forcing ? "…" : "Ingest anyway"}
+          </button>
+        </>
       ) : isSkipped ? (
-        <span>Skipped — duplicate</span>
+        <>
+          <span>Skipped — duplicate</span>
+          <button
+            onClick={handleForce}
+            disabled={forcing}
+            className="ml-1 underline underline-offset-2 hover:no-underline disabled:opacity-50"
+          >
+            {forcing ? "…" : "Ingest anyway"}
+          </button>
+        </>
       ) : isError ? (
         <span title={status.error ?? undefined}>Failed</span>
       ) : (

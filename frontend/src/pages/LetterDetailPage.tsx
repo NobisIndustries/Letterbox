@@ -131,10 +131,13 @@ export function LetterDetailPage() {
   const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const dateVal = fd.get("creation_date") as string;
     editMutation.mutate({
       title: fd.get("title") as string,
       sender: fd.get("sender") as string,
       receiver: fd.get("receiver") as string,
+      creation_date: dateVal || null,
+      summary: fd.get("summary") as string,
       keywords: fd.get("keywords") as string,
       tags: fd.get("tags") as string,
     });
@@ -186,6 +189,14 @@ export function LetterDetailPage() {
           <div>
             <Label htmlFor="receiver">Receiver</Label>
             <Input name="receiver" id="receiver" defaultValue={letter.receiver ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
+          </div>
+          <div>
+            <Label htmlFor="creation_date">Date</Label>
+            <Input name="creation_date" id="creation_date" type="date" defaultValue={letter.creation_date ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
+          </div>
+          <div>
+            <Label htmlFor="summary">Summary</Label>
+            <Textarea name="summary" id="summary" defaultValue={letter.summary ?? ""} className="bg-muted border-0 focus-visible:ring-1" />
           </div>
           <div>
             <Label htmlFor="keywords">Keywords</Label>

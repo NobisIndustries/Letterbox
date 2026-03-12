@@ -125,6 +125,7 @@ async def enhance_images(images: list[bytes]) -> list[bytes]:
     return result
 
 
+
 async def run_ingest(
     session: AsyncSession,
     processed: list[bytes],
@@ -156,7 +157,7 @@ async def run_ingest(
     duplicate_of = await find_duplicate(session, metadata.get("full_text"), creation_date)
     if duplicate_of is not None:
         logger.info("Duplicate detected (letter_id=%d), skipping", duplicate_of)
-        return None, duplicate_of
+        return None, duplicate_of, metadata
 
     await report("saving")
     pdf_filename = f"{uuid.uuid4()}.pdf"
@@ -198,7 +199,68 @@ async def run_ingest(
 
     await session.flush()
     logger.info("Letter saved: id=%d, pages=%d", letter.id, letter.page_count)
-    return letter, None
+    return letter, None, None
+
+
+async def run_ingest_forced_images(
+    session: AsyncSession,
+    processed: list[bytes],
+    metadata: dict,
+    on_progress=None,
+) -> Letter:
+    """Save a previously-skipped image ingest without re-running the LLM."""
+    async def report(step: str):
+        if on_progress:
+            await on_progress(step)
+
+    await report("saving")
+    pdf_filename = f"{uuid.uuid4()}.pdf"
+    pdf_path = str(settings.pdf_dir / pdf_filename)
+    create_pdf(processed, pdf_path)
+    logger.info("PDF saved (forced): %s", pdf_filename)
+
+    creation_date = None
+    if metadata.get("creation_date"):
+        try:
+            creation_date = date.fromisoformat(metadata["creation_date"])
+        except (ValueError, TypeError):
+            pass
+
+    full_text = metadata.get("full_text")
+    letter = Letter(
+        title=metadata.get("title"),
+        summary=metadata.get("summary"),
+        sender=metadata.get("sender"),
+        receiver=metadata.get("receiver"),
+        creation_date=creation_date,
+        keywords=metadata.get("keywords"),
+        tags=metadata.get("tags"),
+        full_text=full_text,
+        pdf_path=f"pdfs/{pdf_filename}",
+        page_count=len(processed),
+        raw_llm_response=metadata.get("raw_llm_response"),
+        transcript_simhash=_simhash(full_text) if full_text else None,
+    )
+    session.add(letter)
+    await session.flush()
+
+    for task_data in metadata.get("tasks", []):
+        deadline = None
+        if task_data.get("deadline"):
+            try:
+                deadline = date.fromisoformat(task_data["deadline"])
+            except (ValueError, TypeError):
+                pass
+        task = Task(
+            letter_id=letter.id,
+            description=task_data.get("description", ""),
+            deadline=deadline,
+        )
+        session.add(task)
+
+    await session.flush()
+    logger.info("Letter saved (forced): id=%d, pages=%d", letter.id, letter.page_count)
+    return letter
 
 
 async def run_ingest_pdf(
@@ -208,8 +270,8 @@ async def run_ingest_pdf(
 ) -> tuple[Letter, int | None]:
     """Run the ingest pipeline for PDF uploads.
 
-    Returns (letter, duplicate_of_id). If duplicate_of_id is not None the
-    letter was not saved and the caller should treat the job as skipped.
+    Returns (letter, duplicate_of_id, metadata). If duplicate_of_id is not None
+    the letter was not saved and the caller should treat the job as skipped.
     """
     async def report(step: str):
         if on_progress:
@@ -232,7 +294,7 @@ async def run_ingest_pdf(
     duplicate_of = await find_duplicate(session, metadata.get("full_text"), creation_date)
     if duplicate_of is not None:
         logger.info("Duplicate detected (letter_id=%d), skipping", duplicate_of)
-        return None, duplicate_of
+        return None, duplicate_of, metadata
 
     await report("saving")
     pdf_filename = f"{uuid.uuid4()}.pdf"
@@ -274,4 +336,65 @@ async def run_ingest_pdf(
 
     await session.flush()
     logger.info("Letter saved: id=%d", letter.id)
-    return letter, None
+    return letter, None, None
+
+
+async def run_ingest_forced_pdf(
+    session: AsyncSession,
+    pdf_bytes: bytes,
+    metadata: dict,
+    on_progress=None,
+) -> Letter:
+    """Save a previously-skipped PDF ingest without re-running the LLM."""
+    async def report(step: str):
+        if on_progress:
+            await on_progress(step)
+
+    await report("saving")
+    pdf_filename = f"{uuid.uuid4()}.pdf"
+    pdf_path = settings.pdf_dir / pdf_filename
+    pdf_path.write_bytes(pdf_bytes)
+    logger.info("PDF saved (forced): %s", pdf_filename)
+
+    creation_date = None
+    if metadata.get("creation_date"):
+        try:
+            creation_date = date.fromisoformat(metadata["creation_date"])
+        except (ValueError, TypeError):
+            pass
+
+    full_text = metadata.get("full_text")
+    letter = Letter(
+        title=metadata.get("title"),
+        summary=metadata.get("summary"),
+        sender=metadata.get("sender"),
+        receiver=metadata.get("receiver"),
+        creation_date=creation_date,
+        keywords=metadata.get("keywords"),
+        tags=metadata.get("tags"),
+        full_text=full_text,
+        pdf_path=f"pdfs/{pdf_filename}",
+        page_count=1,
+        raw_llm_response=metadata.get("raw_llm_response"),
+        transcript_simhash=_simhash(full_text) if full_text else None,
+    )
+    session.add(letter)
+    await session.flush()
+
+    for task_data in metadata.get("tasks", []):
+        deadline = None
+        if task_data.get("deadline"):
+            try:
+                deadline = date.fromisoformat(task_data["deadline"])
+            except (ValueError, TypeError):
+                pass
+        task = Task(
+            letter_id=letter.id,
+            description=task_data.get("description", ""),
+            deadline=deadline,
+        )
+        session.add(task)
+
+    await session.flush()
+    logger.info("Letter saved (forced): id=%d", letter.id)
+    return letter

@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from backend.config import settings
 from backend.dependencies import get_db
 from backend.models import Letter
-from backend.queue import enqueue, enqueue_pdf, get_job
+from backend.queue import enqueue, enqueue_pdf, force_ingest, get_job
 from backend.schemas import (
     IngestResponse,
     LetterListOut,
@@ -65,6 +65,22 @@ async def ingest_status(job_id: str):
             await asyncio.sleep(0.5)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/ingest/{job_id}/force", response_model=IngestResponse)
+async def force_ingest_job(job_id: str):
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(404, "Job not found")
+    if job["status"] != "skipped":
+        raise HTTPException(404, "Job is not in skipped state")
+    try:
+        new_job_id = await force_ingest(job_id)
+    except KeyError:
+        raise HTTPException(410, "Cached data no longer available — please re-upload")
+    except ValueError:
+        raise HTTPException(410, "Cached data expired — please re-upload")
+    return IngestResponse(job_id=new_job_id)
 
 
 def _fts_query(q: str) -> str:

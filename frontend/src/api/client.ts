@@ -83,6 +83,10 @@ export async function uploadImages(files: File[]): Promise<IngestResponse> {
   return res.json();
 }
 
+export async function forceIngest(jobId: string): Promise<IngestResponse> {
+  return request<IngestResponse>(`/letters/ingest/${jobId}/force`, { method: "POST" });
+}
+
 // Tasks
 export async function fetchTasks(
   filter: "all" | "pending" | "done" = "all",

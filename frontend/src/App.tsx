@@ -28,7 +28,7 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>
-      <JobStatusBar jobIds={jobIds} onDismiss={dismissJob} />
+      <JobStatusBar jobIds={jobIds} onDismiss={dismissJob} onForceJob={addJobId} />
       <BottomNav />
     </div>
   );
