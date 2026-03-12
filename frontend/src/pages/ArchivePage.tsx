@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { LetterListItem } from "@/types";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,18 +17,19 @@ function FilterPanel({
   dateTo, setDateTo,
   tag, setTag,
   receiver, setReceiver,
-  resetPage,
+  clearFilters,
   compact,
+  showExtra, setShowExtra,
 }: {
   search: string; setSearch: (v: string) => void;
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   tag: string; setTag: (v: string) => void;
   receiver: string; setReceiver: (v: string) => void;
-  resetPage: () => void;
+  clearFilters: () => void;
   compact: boolean;
+  showExtra: boolean; setShowExtra: (v: boolean) => void;
 }) {
-  const [showExtra, setShowExtra] = useState(false);
 
   const { data: tagsSetting } = useQuery({
     queryKey: ["settings", "tags"],
@@ -56,11 +57,11 @@ function FilterPanel({
         <Input
           placeholder="Search letters..."
           value={search}
-          onChange={(e) => { setSearch(e.target.value); resetPage(); }}
+          onChange={(e) => setSearch(e.target.value)}
           className={inputClass + " flex-1"}
         />
         <button
-          onClick={() => setShowExtra((v) => !v)}
+          onClick={() => setShowExtra(!showExtra)}
           className={`shrink-0 px-2 rounded-md text-xs border transition-colors ${
             hasActiveFilters
               ? "bg-primary text-primary-foreground border-primary"
@@ -83,14 +84,14 @@ function FilterPanel({
               <input
                 type="date"
                 value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); resetPage(); }}
+                onChange={(e) => setDateFrom(e.target.value)}
                 className="flex-1 min-w-0 bg-transparent text-xs py-1.5 focus:outline-none"
               />
               <span className="text-muted-foreground text-xs shrink-0">–</span>
               <input
                 type="date"
                 value={dateTo}
-                onChange={(e) => { setDateTo(e.target.value); resetPage(); }}
+                onChange={(e) => setDateTo(e.target.value)}
                 className="flex-1 min-w-0 bg-transparent text-xs py-1.5 focus:outline-none"
               />
             </div>
@@ -102,7 +103,7 @@ function FilterPanel({
               <span className={labelClass}>Tag</span>
               <select
                 value={tag}
-                onChange={(e) => { setTag(e.target.value); resetPage(); }}
+                onChange={(e) => setTag(e.target.value)}
                 className={selectClass}
               >
                 <option value="">All tags</option>
@@ -119,7 +120,7 @@ function FilterPanel({
               <span className={labelClass}>Recipient</span>
               <select
                 value={receiver}
-                onChange={(e) => { setReceiver(e.target.value); resetPage(); }}
+                onChange={(e) => setReceiver(e.target.value)}
                 className={selectClass}
               >
                 <option value="">All recipients</option>
@@ -132,7 +133,7 @@ function FilterPanel({
 
           {hasActiveFilters && (
             <button
-              onClick={() => { setDateFrom(""); setDateTo(""); setTag(""); setReceiver(""); resetPage(); }}
+              onClick={clearFilters}
               className="text-xs text-muted-foreground hover:text-foreground underline text-left"
             >
               Clear filters
@@ -279,15 +280,38 @@ function PdfPanel({ letterId }: { letterId: number }) {
 export function ArchivePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [tag, setTag] = useState("");
-  const [receiver, setReceiver] = useState("");
-  const [page, setPage] = useState(0);
-  const [order, setOrder] = useState<"creation_date" | "ingested_at">("creation_date");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedLetterId, setSelectedLetterId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showExtra, setShowExtra] = useState(false);
+
+  const search = searchParams.get("q") ?? "";
+  const dateFrom = searchParams.get("dateFrom") ?? "";
+  const dateTo = searchParams.get("dateTo") ?? "";
+  const tag = searchParams.get("tag") ?? "";
+  const receiver = searchParams.get("receiver") ?? "";
+  const page = Number(searchParams.get("page") ?? "0");
+  const order = (searchParams.get("order") ?? "creation_date") as "creation_date" | "ingested_at";
+
+  function updateParams(updates: Record<string, string>) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      return next;
+    }, { replace: true });
+  }
+
+  const setSearch = (v: string) => updateParams({ q: v, page: "" });
+  const setDateFrom = (v: string) => updateParams({ dateFrom: v, page: "" });
+  const setDateTo = (v: string) => updateParams({ dateTo: v, page: "" });
+  const setTag = (v: string) => updateParams({ tag: v, page: "" });
+  const setReceiver = (v: string) => updateParams({ receiver: v, page: "" });
+  const setOrder = (fn: (o: "creation_date" | "ingested_at") => "creation_date" | "ingested_at") =>
+    updateParams({ order: fn(order), page: "" });
+  const setPage = (fn: (p: number) => number) => updateParams({ page: String(fn(page)) });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => deleteLetter(id),
@@ -301,7 +325,6 @@ export function ArchivePage() {
     },
   });
 
-  const resetPage = () => setPage(0);
 
   const activeSearch = search.length >= 3 ? search : "";
 
@@ -360,9 +383,26 @@ export function ArchivePage() {
     setSelectedLetterId(id);
   };
 
+  // Restore scroll position when returning from detail view (wait for data to render)
+  useEffect(() => {
+    if (!data) return;
+    const saved = sessionStorage.getItem("archive-scroll");
+    if (saved) {
+      sessionStorage.removeItem("archive-scroll");
+      requestAnimationFrame(() => window.scrollTo(0, Number(saved)));
+    }
+  }, [data]);
+
   const handleMobileSelect = (id: number) => {
+    sessionStorage.setItem("archive-scroll", String(window.scrollY));
     navigate(`/letters/${id}`);
   };
+
+  const clearFilters = () => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    next.delete("dateFrom"); next.delete("dateTo"); next.delete("tag"); next.delete("receiver"); next.delete("page");
+    return next;
+  }, { replace: true });
 
   const filterProps = {
     search, setSearch,
@@ -370,7 +410,8 @@ export function ArchivePage() {
     dateTo, setDateTo,
     tag, setTag,
     receiver, setReceiver,
-    resetPage,
+    clearFilters,
+    showExtra, setShowExtra,
   };
 
   return (
@@ -382,7 +423,7 @@ export function ArchivePage() {
           <div className="flex items-center gap-2">
             {data && <span className="text-sm text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
             <button
-              onClick={() => { setOrder(o => o === "creation_date" ? "ingested_at" : "creation_date"); resetPage(); }}
+              onClick={() => setOrder(o => o === "creation_date" ? "ingested_at" : "creation_date")}
               className={`text-xs px-2 py-1 rounded-md border transition-colors ${order === "ingested_at" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent"}`}
               title={order === "ingested_at" ? "Sorted by date added" : "Sorted by letter date"}
             >
@@ -423,7 +464,7 @@ export function ArchivePage() {
               <div className="flex items-center gap-2">
                 {data && <span className="text-xs text-muted-foreground">{data.total} {data.total === 1 ? "letter" : "letters"}</span>}
                 <button
-                  onClick={() => { setOrder(o => o === "creation_date" ? "ingested_at" : "creation_date"); resetPage(); }}
+                  onClick={() => setOrder(o => o === "creation_date" ? "ingested_at" : "creation_date")}
                   className={`text-xs px-2 py-0.5 rounded-md border transition-colors ${order === "ingested_at" ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent"}`}
                   title={order === "ingested_at" ? "Sorted by date added" : "Sorted by letter date"}
                 >
