@@ -1,4 +1,6 @@
 import asyncio
+import ctypes
+import gc
 import logging
 import tempfile
 import time
@@ -7,6 +9,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import torch
 
 from backend.config import settings
 
@@ -35,6 +38,13 @@ def _unload_processor():
     global _processor
     if _processor is not None:
         _processor = None
+        gc.collect()
+        torch.clear_autocast_cache()
+        # Ask glibc to return freed memory to the OS
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except OSError:
+            pass
         logger.info("DocRes model weights unloaded due to inactivity.")
 
 
