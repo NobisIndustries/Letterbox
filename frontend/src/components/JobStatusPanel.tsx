@@ -24,9 +24,10 @@ interface JobRowProps {
   jobId: string;
   job: JobStatus;
   onForced: () => void;
+  onNavigate?: () => void;
 }
 
-function JobRow({ jobId, job, onForced }: JobRowProps) {
+function JobRow({ jobId, job, onForced, onNavigate }: JobRowProps) {
   const [forcing, setForcing] = useState(false);
   const [forceError, setForceError] = useState<string | null>(null);
 
@@ -64,6 +65,7 @@ function JobRow({ jobId, job, onForced }: JobRowProps) {
         {isDone && job.letter_id ? (
           <Link
             to={`/letters/${job.letter_id}`}
+            onClick={onNavigate}
             className="text-green-700 underline underline-offset-2 hover:no-underline"
           >
             Letter #{job.letter_id} ready
@@ -77,6 +79,7 @@ function JobRow({ jobId, job, onForced }: JobRowProps) {
             Duplicate of{" "}
             <Link
               to={`/letters/${job.duplicate_of}`}
+              onClick={onNavigate}
               className="underline underline-offset-2 hover:no-underline"
             >
               #{job.duplicate_of}
@@ -110,9 +113,10 @@ function JobRow({ jobId, job, onForced }: JobRowProps) {
 interface JobStatusPanelProps {
   jobs: Record<string, JobStatus>;
   onRefresh: () => void;
+  onNavigate?: () => void;
 }
 
-export function JobStatusPanel({ jobs, onRefresh }: JobStatusPanelProps) {
+export function JobStatusPanel({ jobs, onRefresh, onNavigate }: JobStatusPanelProps) {
   const entries = Object.entries(jobs).sort(([, a], [, b]) => b.created_at - a.created_at);
 
   if (entries.length === 0) {
@@ -126,7 +130,7 @@ export function JobStatusPanel({ jobs, onRefresh }: JobStatusPanelProps) {
   return (
     <div className="flex-1 overflow-y-auto divide-y">
       {entries.map(([jid, job]) => (
-        <JobRow key={jid} jobId={jid} job={job} onForced={onRefresh} />
+        <JobRow key={jid} jobId={jid} job={job} onForced={onRefresh} onNavigate={onNavigate} />
       ))}
     </div>
   );

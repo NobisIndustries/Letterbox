@@ -101,7 +101,7 @@ export function JobDrawer({ jobs, onRefresh }: JobDrawerProps) {
             </div>
 
             {/* Job list */}
-            <JobStatusPanel jobs={jobs} onRefresh={onRefresh} />
+            <JobStatusPanel jobs={jobs} onRefresh={onRefresh} onNavigate={() => setOpen(false)} />
           </div>
         </div>
       )}
