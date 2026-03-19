@@ -4,10 +4,10 @@ import { uploadImages } from "@/api/client";
 import { Camera, FileText, Images, Mail } from "lucide-react";
 
 interface IngestPageProps {
-  onJobCreated: (jobId: string) => void;
+  onUploaded: () => void;
 }
 
-export function IngestPage({ onJobCreated }: IngestPageProps) {
+export function IngestPage({ onUploaded }: IngestPageProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -56,8 +56,8 @@ export function IngestPage({ onJobCreated }: IngestPageProps) {
     if (files.length === 0) return;
     setUploading(true);
     try {
-      const res = await uploadImages(files);
-      onJobCreated(res.job_id);
+      await uploadImages(files);
+      onUploaded();
       clearAll();
     } finally {
       setUploading(false);

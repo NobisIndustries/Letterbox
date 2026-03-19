@@ -1,5 +1,6 @@
 import type {
   IngestResponse,
+  JobStatus,
   Letter,
   LetterListResponse,
   Setting,
@@ -85,6 +86,14 @@ export async function uploadImages(files: File[]): Promise<IngestResponse> {
 
 export async function forceIngest(jobId: string): Promise<IngestResponse> {
   return request<IngestResponse>(`/letters/ingest/${jobId}/force`, { method: "POST" });
+}
+
+export async function fetchJobs(): Promise<Record<string, JobStatus>> {
+  return request<Record<string, JobStatus>>("/letters/ingest/jobs");
+}
+
+export async function clearFinishedJobs(): Promise<void> {
+  return request<void>("/letters/ingest/jobs", { method: "DELETE" });
 }
 
 // Tasks

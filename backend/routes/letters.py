@@ -1,10 +1,8 @@
-import asyncio
-import json
 import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,9 +10,10 @@ from sqlalchemy.orm import selectinload
 from backend.config import settings
 from backend.dependencies import get_db
 from backend.models import Letter
-from backend.queue import enqueue, enqueue_pdf, force_ingest, get_job
+from backend.queue import clear_finished_jobs, enqueue, enqueue_pdf, force_ingest, get_job, get_recent_jobs
 from backend.schemas import (
     IngestResponse,
+    JobStatusOut,
     LetterListOut,
     LetterListResponse,
     LetterOut,
@@ -42,29 +41,24 @@ async def ingest_upload(files: list[UploadFile]):
     return IngestResponse(job_id=job_id)
 
 
-@router.get("/ingest/{job_id}/status")
-async def ingest_status(job_id: str):
-    async def event_stream():
-        prev_status = None
-        while True:
-            job = get_job(job_id)
-            if job is None:
-                yield f"data: {json.dumps({'status': 'not_found'})}\n\n"
-                return
-            if job["status"] != prev_status:
-                prev_status = job["status"]
-                payload = {
-                    "status": job["status"],
-                    "letter_id": job.get("letter_id"),
-                    "error": job.get("error"),
-                    "duplicate_of": job.get("duplicate_of"),
-                }
-                yield f"data: {json.dumps(payload)}\n\n"
-                if job["status"] in ("done", "error", "skipped"):
-                    return
-            await asyncio.sleep(0.5)
+@router.get("/ingest/jobs", response_model=dict[str, JobStatusOut])
+async def list_jobs(since: int = Query(15, ge=1, le=60)):
+    jobs = get_recent_jobs(since)
+    return {
+        jid: JobStatusOut(
+            status=job["status"],
+            letter_id=job.get("letter_id"),
+            error=job.get("error"),
+            duplicate_of=job.get("duplicate_of"),
+            created_at=job["created_at"],
+        )
+        for jid, job in jobs.items()
+    }
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+@router.delete("/ingest/jobs", status_code=204)
+async def clear_jobs():
+    clear_finished_jobs()
 
 
 @router.post("/ingest/{job_id}/force", response_model=IngestResponse)

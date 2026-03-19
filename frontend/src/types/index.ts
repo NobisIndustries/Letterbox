@@ -48,11 +48,12 @@ export interface IngestResponse {
   job_id: string;
 }
 
-export interface IngestStatus {
+export interface JobStatus {
   status: string;
   letter_id: number | null;
   error: string | null;
   duplicate_of: number | null;
+  created_at: number;
 }
 
 export interface Setting {

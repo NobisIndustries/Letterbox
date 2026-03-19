@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 _queue: asyncio.Queue | None = None
 _jobs: dict[str, dict] = {}
+_JOB_RETENTION = 900  # 15 minutes
 
 # Cache of pending (skipped-duplicate) ingest payloads, keyed by original job_id.
 # Each entry: {"kind": "images"|"pdf", "processed": list[bytes]|bytes,
@@ -35,9 +36,33 @@ def get_job(job_id: str) -> dict | None:
     return _jobs.get(job_id)
 
 
+def get_recent_jobs(since_minutes: int = 15) -> dict[str, dict]:
+    cutoff = time.time() - since_minutes * 60
+    return {jid: job for jid, job in _jobs.items() if job["created_at"] >= cutoff}
+
+
+def cleanup_old_jobs() -> None:
+    cutoff = time.time() - _JOB_RETENTION
+    expired = [jid for jid, job in _jobs.items() if job["created_at"] < cutoff]
+    for jid in expired:
+        del _jobs[jid]
+
+
+_CLEARABLE = {"done", "error", "skipped"}
+
+
+def clear_finished_jobs() -> int:
+    to_remove = [jid for jid, job in _jobs.items() if job["status"] in _CLEARABLE]
+    for jid in to_remove:
+        _pending_cache.pop(jid, None)
+        del _jobs[jid]
+    return len(to_remove)
+
+
 async def enqueue(images: list[bytes]) -> str:
+    cleanup_old_jobs()
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None}
+    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None, "created_at": time.time()}
     await _get_queue().put((job_id, images))
     logger.info("Enqueued image ingest job %s (%d image(s))", job_id, len(images))
     return job_id
@@ -71,8 +96,9 @@ async def _finish_ingest(job_id: str, processed: list[bytes]) -> None:
 
 
 async def enqueue_pdf(pdf_bytes: bytes) -> str:
+    cleanup_old_jobs()
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None}
+    _jobs[job_id] = {"status": "queued", "letter_id": None, "error": None, "duplicate_of": None, "created_at": time.time()}
     logger.info("Enqueued PDF ingest job %s (%d bytes)", job_id, len(pdf_bytes))
     task = asyncio.create_task(_finish_ingest_pdf(job_id, pdf_bytes))
     task.add_done_callback(lambda t: logger.error("Unhandled error in PDF ingest task: %s", t.exception()) if not t.cancelled() and t.exception() else None)
@@ -153,7 +179,7 @@ async def force_ingest(job_id: str) -> str:
         raise ValueError("expired")
 
     new_job_id = str(uuid.uuid4())
-    _jobs[new_job_id] = {"status": "saving", "letter_id": None, "error": None, "duplicate_of": None}
+    _jobs[new_job_id] = {"status": "saving", "letter_id": None, "error": None, "duplicate_of": None, "created_at": time.time()}
 
     del _pending_cache[job_id]
 

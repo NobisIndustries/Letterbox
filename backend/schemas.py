@@ -75,6 +75,14 @@ class IngestResponse(BaseModel):
     job_id: str
 
 
+class JobStatusOut(BaseModel):
+    status: str
+    letter_id: int | None = None
+    error: str | None = None
+    duplicate_of: int | None = None
+    created_at: float
+
+
 class SettingOut(BaseModel):
     key: str
     value: list[str]

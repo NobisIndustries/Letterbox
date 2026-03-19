@@ -25,7 +25,7 @@ Physical letters pile up and are hard to find later. This app lets you photograp
 - `backend/models.py` — SQLAlchemy ORM models (Letter, Task, Setting)
 - `backend/schemas.py` — Pydantic request/response models
 - `backend/dependencies.py` — FastAPI dependency injection (get_db)
-- `backend/queue.py` — Single-worker asyncio.Queue + SSE job status
+- `backend/queue.py` — Single-worker asyncio.Queue + in-memory job status store
 - `backend/routes/` — API route modules (letters, tasks, settings, senders)
 - `backend/services/` — Business logic (ingest pipeline, LLM, processing, PDF)
 - `backend/docres_inference/` — Copied from DocRes repo (don't edit directly)
@@ -52,7 +52,9 @@ docker compose up --build
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | POST | `/api/letters/ingest` | Upload images → returns job_id |
-| GET | `/api/letters/ingest/{job_id}/status` | SSE progress stream |
+| GET | `/api/letters/ingest/jobs` | Poll recent job statuses (last 15min) |
+| DELETE | `/api/letters/ingest/jobs` | Clear finished/errored/skipped jobs |
+| POST | `/api/letters/ingest/{job_id}/force` | Force-ingest a skipped duplicate |
 | GET | `/api/letters` | List/search (q, date_from, date_to, offset, limit, order) |
 | GET | `/api/letters/{id}` | Letter detail |
 | PATCH | `/api/letters/{id}` | Edit metadata/tags |
