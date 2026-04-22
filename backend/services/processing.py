@@ -2,10 +2,8 @@ import asyncio
 import ctypes
 import gc
 import logging
-import tempfile
 import time
 from functools import partial
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -14,6 +12,94 @@ import torch
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Image enhancement (shared by both processing paths)
+# ---------------------------------------------------------------------------
+
+def fast_enhance(
+    img: np.ndarray,
+    shadow_strength: float = 0.8,
+    shadow_dilate_size: int = 9,
+    shadow_median_size: int = 9,
+    stretch_low_pct: float = 1.5,
+    stretch_high_pct: float = 98.0,
+    clahe_clip: float = 0.0,
+    clahe_grid: int = 8,
+    white_balance: bool = True,
+) -> np.ndarray:
+    """Combined deshadow + appearance enhancement (pure OpenCV).
+
+    All operations work in LAB space (single conversion).
+    """
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    l_f = l.astype(np.float32)
+
+    # --- Shadow removal: additive illumination correction ---
+    if shadow_strength > 0:
+        kernel = np.ones((shadow_dilate_size, shadow_dilate_size), np.uint8)
+        dilated = cv2.dilate(l, kernel)
+        bg = cv2.medianBlur(dilated, shadow_median_size).astype(np.float32)
+        target = np.max(bg)
+        correction = (target - bg) * shadow_strength
+        l_f = np.clip(l_f + correction, 0, 255)
+
+    # --- Histogram-aware black/white point stretch ---
+    # Use Otsu's method to find the ink/paper boundary, then derive
+    # black and white points from actual histogram peaks rather than
+    # raw percentiles (which fail on low-content pages).
+    l_u8 = np.clip(l_f, 0, 255).astype(np.uint8)
+    otsu_thresh, _ = cv2.threshold(l_u8, 0, 255, cv2.THRESH_OTSU)
+
+    # Check if the histogram is actually bimodal (document-like) by
+    # measuring inter-class variance. On photos/flyers the distribution
+    # is continuous and Otsu's split is arbitrary — fall back to gentle
+    # percentile stretch in that case.
+    ink_mask = l_f < otsu_thresh
+    ink_ratio = np.count_nonzero(ink_mask) / l_f.size
+    is_bimodal = False
+    if 0.005 < ink_ratio < 0.95:
+        ink_mean = l_f[ink_mask].mean()
+        paper_mean = l_f[~ink_mask].mean()
+        is_bimodal = (paper_mean - ink_mean) > 60
+
+    if is_bimodal:
+        # Document-like: anchor to actual ink/paper peaks
+        lo = np.percentile(l_f[ink_mask], 5.0)
+        hi = np.percentile(l_f[~ink_mask], 95.0)
+    elif ink_ratio <= 0.005:
+        # Almost no dark content — barely stretch
+        lo = 0.0
+        hi = np.percentile(l_f, stretch_high_pct)
+    else:
+        # Continuous distribution (photo/flyer) — gentle percentile stretch
+        lo = np.percentile(l_f, stretch_low_pct)
+        hi = np.percentile(l_f, stretch_high_pct)
+
+    if hi - lo > 10:
+        l_f = np.clip((l_f - lo) / (hi - lo) * 255, 0, 255)
+    l = l_f.astype(np.uint8)
+
+    # --- CLAHE ---
+    if clahe_clip > 0:
+        clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(clahe_grid, clahe_grid))
+        l = clahe.apply(l)
+
+    enhanced = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+
+    # --- Gray-world white balance ---
+    if white_balance:
+        avg_b, avg_g, avg_r = [enhanced[:, :, i].mean() for i in range(3)]
+        avg_gray = (avg_b + avg_g + avg_r) / 3
+        enhanced = enhanced.astype(np.float32)
+        enhanced[:, :, 0] *= avg_gray / max(avg_b, 1)
+        enhanced[:, :, 1] *= avg_gray / max(avg_g, 1)
+        enhanced[:, :, 2] *= avg_gray / max(avg_r, 1)
+        enhanced = np.clip(enhanced, 0, 255).astype(np.uint8)
+
+    return enhanced
 
 _processor = None
 _last_used: float = time.monotonic()
@@ -193,21 +279,25 @@ def _process_sync(images: list[bytes], dewarping_method: str = "deep_learning") 
                 img = cv2.resize(img, new_size, interpolation=cv2.INTER_AREA)
 
             # Enhancement
-            img = proc.fast_enhance(img)
+            img = fast_enhance(img)
 
             _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, settings.jpeg_quality])
             results.append(buf.tobytes())
     else:
-        # Deep learning path: use DocResProcessor.process() with orientation handling
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_paths = [str(Path(tmpdir) / f"out_{i}.jpg") for i in range(len(images))]
-            proc.process(
-                images, output_paths,
-                max_output_width=settings.max_image_width,
-                jpeg_quality=settings.jpeg_quality,
-            )
-            for p in output_paths:
-                results.append(Path(p).read_bytes())
+        # Deep learning path: dewarping via DocRes, then our own enhancement
+        for img_bytes in images:
+            img = proc._load_image(img_bytes)
+            img = proc._dewarping(img)
+
+            if settings.max_image_width and img.shape[1] > settings.max_image_width:
+                ratio = settings.max_image_width / img.shape[1]
+                new_size = (settings.max_image_width, int(img.shape[0] * ratio))
+                img = cv2.resize(img, new_size, interpolation=cv2.INTER_AREA)
+
+            img = fast_enhance(img)
+
+            _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, settings.jpeg_quality])
+            results.append(buf.tobytes())
 
     return results
 
